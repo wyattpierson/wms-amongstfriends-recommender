@@ -1,0 +1,9 @@
+# Secrets — never commit these
+.env
+serviceAccountKey.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
