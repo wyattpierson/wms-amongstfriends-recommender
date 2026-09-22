@@ -1,0 +1,422 @@
+{
+  "profile": "wyatt",
+  "description": "Real user profile fetched from Firebase (wyatt).",
+  "source": "firebase",
+  "source_user_id": "Jdwvuss3sFch1QiBvT7BanC0CI92",
+  "fetched_at": "2026-09-07T21:03:01+00:00",
+  "notes": "Fetched via eval/make_fixture.py from get_user_reviews, kept to MUSIC/ALBUM reviews only (books/restaurants/`other` stripped) — exactly the rows the production engine feeds to the LLM. Do not hand-edit reviews; re-fetch with --force instead.",
+  "reviews": [
+    {
+      "catalog": {
+        "catalogId": "album_ef39d42c71209624",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Good Grief",
+          "artistName": "Sara Bareilles",
+          "catalogID": ""
+        },
+        "name": "Good Grief",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Sun, 30 Aug 2026 21:00:15 GMT",
+      "groupId": "default-group",
+      "rating": 2,
+      "reviewId": "cY3nikxqmm290ZxjmfyR",
+      "tags": [],
+      "text": "I really wanted to like this… Sara Bareilles can be so good and I love girls5eva and was craving some good folky pop, but this really didn’t work for me. It is overdone basic ballads that sound like a hallmark movie rendition of a Hillary Clinton campaign rally. There is some real heart in some of it and it has some lyrics that balance simplicity and real emotional weight (like in Home) but sonically I just did not enjoy listening to this. It’s not just boring, easy listening… but actively feels unpleasant to me at times",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_7ce95afddb0e92c1",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "ii",
+          "artistName": "Denzel Curry, Kenny Beats",
+          "catalogID": ""
+        },
+        "name": "ii",
+        "type": "album",
+        "userTags": [
+          "chill",
+          "hip-hop"
+        ]
+      },
+      "createdAt": "Fri, 28 Aug 2026 15:34:06 GMT",
+      "groupId": "default-group",
+      "rating": 3,
+      "reviewId": "dlQ9PpONkmE1edRn59vX",
+      "tags": [],
+      "text": "Sounds nice but is a bit nothing. Denzel curry can be incredible when he commits to an album (Melt my…, TA1300, ZUU) and has a lot of range (Strictly 4 The Scythe) but this is just going through the motions. It’s pleasant and is a nice early 2000s vibey raps just doesn’t stand out",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_ba717ef230ba1db5",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Confessions II",
+          "artistName": "Madonna",
+          "catalogID": ""
+        },
+        "name": "Confessions II",
+        "type": "album",
+        "userTags": [
+          "dance",
+          "pop"
+        ]
+      },
+      "createdAt": "Fri, 14 Aug 2026 17:17:24 GMT",
+      "groupId": "default-group",
+      "rating": 5,
+      "reviewId": "bhJ96po568S75RYYTe6E",
+      "tags": [],
+      "text": "It’s genuinely shocking how great this is. The whole thing feels like a late night club mix and it works. I talk often about how the worst part of renaissance is how corny Beyoncé is on it, but Madonna somehow avoids all that here. It feels natural and timeless. You feel the history of dance music in this but it feels fresh too. This is the best dance pop album in a long time",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_90c608c8916388f5",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "The Real Me",
+          "artistName": "Future",
+          "catalogID": ""
+        },
+        "name": "The Real Me",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Tue, 14 Jul 2026 04:02:17 GMT",
+      "groupId": "default-group",
+      "rating": 2,
+      "reviewId": "80VntOvfO42PpwaDHeZ0",
+      "tags": [],
+      "text": "This isn’t bad, but if this was playing and I didn’t know it was his new album, I’d have just assumed I’ve heard of all it before. It is just so samey and basically feels like AI making a future album for most of it. It feels like Drake’s Habibti, which isn’t a compliment. If you can make it to the end, you are rewarded with the stretch of Hollywood to Eye to Eye which is the best part of the album and does sound a bit fresher and I enjoyed quite a bit",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_7fc16d88a8044a0a",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Sir Render",
+          "artistName": "Navy Blue",
+          "catalogID": ""
+        },
+        "name": "Sir Render",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Mon, 08 Jun 2026 15:29:41 GMT",
+      "groupId": "default-group",
+      "rating": 2,
+      "reviewId": "2Jf3xnxpDwYRcNFeO2C9",
+      "tags": [],
+      "text": "I’ve probably listened to 50 Navy Blue songs, and literally remember none of them. There is a version of of the monotone raps over simple loops that work well (Ka and Earl, who are featured here, both do it better) but it just doesn’t really work for me with Navy Blue. He doesn’t have the magic of Ka or Guru or others that pull this off and it just ends up a bit repetitve and boring. It isn’t bad and is easy in the background and there are moments were there is a hypnotic momentum to it, but I feel like there are just better versions more worthy of your time",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_5a70159d3e86ad6d",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "MAID OF HONOUR",
+          "artistName": "Drake",
+          "catalogID": ""
+        },
+        "name": "MAID OF HONOUR",
+        "type": "album",
+        "userTags": [
+          "party",
+          "boppy-rap"
+        ]
+      },
+      "createdAt": "Fri, 29 May 2026 15:30:28 GMT",
+      "groupId": "default-group",
+      "rating": 4,
+      "reviewId": "Zk2IllCkgMHls2XLuF79",
+      "tags": [],
+      "text": "There are a lot of reasons this shouldn’t work. It’s so easy to make fun of and find cheesy lines or samples/hooks that feel so try hardy for hit… that being said… it just works. This is a better version of Honestly, Nevermind with Drake finding an electronic/dancehall influenced rap album that just is fun. This would sound great at a bar and it would be hard not to bop along at a party. I’d recommend not listening too close but just letting the vibe take you. I would also turn it off before the last song which is the biggest miss. But otherwise this is just really good",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_bce37d24270a3f73",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "ICEMAN",
+          "artistName": "Drake",
+          "catalogID": ""
+        },
+        "name": "ICEMAN",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Fri, 29 May 2026 15:22:49 GMT",
+      "groupId": "default-group",
+      "rating": 3,
+      "reviewId": "8r797uDhm9JwrCGtIVNI",
+      "tags": [],
+      "text": "It’s a worse Nothing Was The Same, which is honestly more or a compliment then insult. There is just a vibey rappy drake that works for me. He can be repetitive and a lot of people sound like him (and he bites a lot of others’ style) but he is still just capable of scratch an itch that isn’t satisfied otherwise. There is plenty to critique here and you can find a lot of really corny and easy to make fun of lines but it sounds good so it just doesn’t really matter",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_aac6e8f7a6cc126a",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Love is the New Gangsta",
+          "artistName": "6LACK",
+          "catalogID": ""
+        },
+        "name": "Love is the New Gangsta",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Fri, 22 May 2026 15:51:09 GMT",
+      "groupId": "default-group",
+      "rating": 2,
+      "reviewId": "l8439sZA4USD8G9Cr4ZQ",
+      "tags": [],
+      "text": "Inoffensive and forgettable. He sounds good and it is nice vibey background music. But nothing really noteworthy about it. It’s not a bad listen but not worth going back to or recommending for really any reason. I’m certain I’ll forget this exists in a week",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_e43b16e6dc3d4b27",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Hababiti",
+          "artistName": "Drake",
+          "catalogID": ""
+        },
+        "name": "Hababiti",
+        "type": "album",
+        "userTags": []
+      },
+      "createdAt": "Fri, 22 May 2026 15:48:28 GMT",
+      "groupId": "default-group",
+      "rating": 1,
+      "reviewId": "pFS4o1gTihYXAcLhpPXn",
+      "tags": [],
+      "text": "Just a whole album of nothing filler. It wasn’t actively offensive (which some and Drake can be) but it is just such a nothing. I honestly can’t remember anything about it even though I just listened. These are all mid album filler tracks that can be used to set pace/tone, but a whole hour of it just shouldn’t exist",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_c0155039f984e021",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "The Suburbs",
+          "artistName": "Arcade Fire",
+          "catalogID": ""
+        },
+        "name": "The Suburbs",
+        "type": "album",
+        "userTags": [
+          "indie-rock"
+        ]
+      },
+      "createdAt": "Fri, 24 Apr 2026 20:53:24 GMT",
+      "groupId": "default-group",
+      "rating": 5,
+      "reviewId": "d41wkulYtuN0GvZLthgH",
+      "tags": [],
+      "text": "Just a perfect album start to finish. I don’t know how to explain exactly what makes it sound so good or why it is better than other things, but it is just the perfect version of what it is. It still feels fresh 20+ years later. Every song feels part of something bigger but all sound great. It keeps finding ways to surprise and stay interesting",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_e6d0f7253fbab1fd",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Fidelity",
+          "artistName": "Yaya Bey",
+          "catalogID": ""
+        },
+        "name": "Fidelity",
+        "type": "album",
+        "userTags": [
+          "r&b",
+          "soulful",
+          "vibey",
+          "late-night",
+          "background"
+        ]
+      },
+      "createdAt": "Tue, 21 Apr 2026 02:00:23 GMT",
+      "groupId": "default-group",
+      "rating": 4,
+      "reviewId": "66ITi5AQP9S43ZzxFhjt",
+      "tags": [],
+      "text": "Some really nice late night, rainy day, vibey r&b. Sounds great in the background but is interesting enough to hold attention too",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_59bb1e797b55ceda",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Time Heals Everything",
+          "artistName": "Blu & Exile",
+          "catalogID": ""
+        },
+        "name": "Time Heals Everything",
+        "type": "album",
+        "userTags": [
+          "rappy-rap"
+        ]
+      },
+      "createdAt": "Mon, 20 Apr 2026 17:15:41 GMT",
+      "groupId": "default-group",
+      "rating": 4,
+      "reviewId": "eimGTBXEtlD99Sg0J8uw",
+      "tags": [],
+      "text": "Feels nostalgic for the early 2000s era of underground conscious rappy rap, but this has a lightness to it where it isn’t trying too hard and has some nice soul beats and just feels very good",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_9400c79fb98250e7",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "CTRL ESCAPE",
+          "artistName": "John Summit",
+          "catalogID": ""
+        },
+        "name": "CTRL ESCAPE",
+        "type": "album",
+        "userTags": [
+          "edm",
+          "big-room",
+          "party"
+        ]
+      },
+      "createdAt": "Fri, 17 Apr 2026 16:08:07 GMT",
+      "groupId": "default-group",
+      "rating": 3,
+      "reviewId": "K7JO5RAZ6jyM9aVT8bxp",
+      "tags": [],
+      "text": "Solid but unspectacular big room/mainstage edm. You could throw on at a party in the background and people would be into it, but it is pretty forgettable too. I enjoyed the listen but won’t remember it in a week",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_f537b11413e63917",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "And After That, We Didn’t Talk",
+          "artistName": "GoldLink",
+          "catalogID": ""
+        },
+        "name": "And After That, We Didn’t Talk",
+        "type": "album",
+        "userTags": [
+          "hip-hop"
+        ]
+      },
+      "createdAt": "Thu, 16 Apr 2026 03:10:10 GMT",
+      "groupId": "default-group",
+      "rating": 4,
+      "reviewId": "S6kmUlYp18CFjrmsA0lL",
+      "tags": [],
+      "text": "I’m not exactly sure why this album works so much for me, but every time I listen I’m reminded how much I love it. It has enough range and is just nice chill rap",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_f463c4a2df6c035c",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "The House Is Burning ",
+          "artistName": "Isaiah Rashad",
+          "catalogID": ""
+        },
+        "name": "The House Is Burning ",
+        "type": "album",
+        "userTags": [
+          "hip-hop",
+          "vibey"
+        ]
+      },
+      "createdAt": "Thu, 16 Apr 2026 03:07:47 GMT",
+      "groupId": "default-group",
+      "rating": 4,
+      "reviewId": "xUgxuQQLAdDwgDaoQM9q",
+      "tags": [],
+      "text": "Like all Isaiah Rashad albums, it has incredibly high highs but also is flawed and has some real duds. Overall great",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_ff67a5f0ef3fed40",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "ARIRANG",
+          "artistName": "BTS",
+          "catalogID": ""
+        },
+        "name": "",
+        "type": "album",
+        "userTags": [
+          "pop"
+        ]
+      },
+      "createdAt": "Wed, 01 Apr 2026 22:24:56 GMT",
+      "groupId": "default-group",
+      "rating": 2,
+      "reviewId": "GUNOBDhQEFb6yo6JSrrq",
+      "tags": [],
+      "text": "It reminds of 20/20 experience (which I loved) in that it is a return album that leans hip hop heavy and is a twist on modern pop music but elevated by really strong vocal leads. The problem is I feel like it doesn’t capture the personality of BTS. It feels like an album featuring bts as opposed to showcasing them. I think I’d like this if this was the new Justin Bieber album but I’m a little disappointed as I was craving BTS and this album didn’t give me that. So overall it ends up being forgettable pop",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_8d6125757a8f925d",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "Ö",
+          "artistName": "Fcukers",
+          "catalogID": ""
+        },
+        "name": "",
+        "type": "album",
+        "userTags": [
+          "electro pop"
+        ]
+      },
+      "createdAt": "Wed, 01 Apr 2026 19:21:10 GMT",
+      "groupId": "default-group",
+      "rating": 3,
+      "reviewId": "AwIygzPs8KXDrCHHAnHy",
+      "tags": [],
+      "text": "Solid but unspectacular electro pop. Easy listen but not great. L.U.C.K.Y is a bop",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    },
+    {
+      "catalog": {
+        "catalogId": "album_9dd66652573c46e1",
+        "imageUrl": null,
+        "metadata": {
+          "albumName": "THIS MUSIC MAY CONTAIN HOPE.",
+          "artistName": "RAYE",
+          "catalogID": ""
+        },
+        "name": "",
+        "type": "album",
+        "userTags": [
+          "pop"
+        ]
+      },
+      "createdAt": "Wed, 01 Apr 2026 18:44:50 GMT",
+      "groupId": "default-group",
+      "rating": 5,
+      "reviewId": "spD1JLzcelQ7PS5i5sXg",
+      "tags": [],
+      "text": "Truly special pop music. I didn’t know much about raye and didn’t expect much, but this album just forces you to pay attention. It is musical-esque but never is too much or alienating. It has a lot of range and it all works",
+      "userId": "Jdwvuss3sFch1QiBvT7BanC0CI92"
+    }
+  ]
+}

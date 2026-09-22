@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AmongstFriends — taste eval</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🎧 AmongstFriends</h1>
+  <p class="sub">human-judged model evaluations · generated <span id="generated"></span> · <a href="index.html">local data, static site</a></p>
+  <nav id="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="scores">Scores (1–5)</button>
+    <button data-tab="duels">Duels &amp; Elo</button>
+    <button data-tab="labels">Labels</button>
+    <button data-tab="golden">Golden sets</button>
+    <button data-tab="leaderboards">Leaderboards</button>
+  </nav>
+</header>
+<main>
+  <section id="tab-dashboard" class="tab active"></section>
+  <section id="tab-scores" class="tab"></section>
+  <section id="tab-duels" class="tab"></section>
+  <section id="tab-labels" class="tab"></section>
+  <section id="tab-golden" class="tab"></section>
+  <section id="tab-leaderboards" class="tab"></section>
+</main>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

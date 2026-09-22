@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Evaluation output (generated reports/leaderboards/CSVs)
+eval/output/

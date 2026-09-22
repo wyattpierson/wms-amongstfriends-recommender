@@ -1,268 +1,228 @@
 # AmongstFriends — LLM Recommendation Engine
 
-A local Python script that reads a user's reviews from the AmongstFriends Firebase backend, runs them through a local Ollama LLM to generate personalized recommendations, and submits those recommendations back via Firebase Functions.
+Reads a user's album reviews from the AmongstFriends Firebase backend, runs them
+through a local LLM to generate personalized album recommendations, verifies each
+pick against the real Spotify API (retrying hallucinations), and submits them back
+via Firebase Functions.
 
-Currently supports: **music (albums)**. Restaurants, books, and other types are stubbed for future expansion.
+Currently supports **music (albums)**; other types are stubbed for the future.
 
----
+> **Quick reference:** `make` (or `make help`) lists every command in this repo.
+> This README explains *what things are and when to use them*; the deep-dive on
+> evaluation is [`eval/README.md`](eval/README.md).
 
-
-## To run
-* source venv/bin/activate
-* pip install python-dotenv
-  * I don't think this is needed, but just in case
-* python recommend.py Jdwvuss3sFch1QiBvT7BanC0CI92 --dry-run
-
-
-
-## How it works
-
-```
-get_user_reviews()        Ollama (local)        submit_recommendation()
-  Firebase Function   →   llama3 / mistral   →   Firebase Function
-  (fetch album reviews)   (generate recs)         (one call per rec)
-```
-
-1. Authenticates as `LLMBot` using your service account key
-2. Calls `get_user_reviews` to fetch all reviews for a given user
-3. Filters to album reviews only, ignores restaurants/books/etc.
-4. Sends the review list to your local Ollama model
-5. Calls `submit_recommendation` once for each recommendation returned
+> **What's generic, what's personal.** Reusable, in my opinion: the
+> local-LLM → Spotify-verification pipeline pattern (`afrec/llm.py`,
+> `afrec/pipeline.py`, `afrec/spotify.py`) and the whole evaluation harness
+> (`eval/` — fixtures, golden sets with contrast pairs, live human judging,
+> Elo duels, static dashboard). Specific to me: the Firebase wiring
+> (`afrec/firebase.py`, `recommend.py`) is built for the AmongstFriends app,
+> and the `wyatt` fixture/golden is my own review data and taste. If you only
+> read one thing, read [`eval/README.md`](eval/README.md).
 
 ---
 
-## Prerequisites
+## What's here
 
-### 1. Python 3.10+
+```
+afrec/        THE ENGINE — the thing being measured (never imports from eval/)
+  prompts.py     ← the file you edit to tune the engine
+  pipeline.py    orchestration: artists → albums → verify → retry
+  spotify.py     hallucination check (verify artist+album against Spotify)
+  llm.py         LLM client — llama.cpp llama-server (default) or Ollama, via .env
+  firebase.py    auth + remote function calls (production only)
+  reviews.py     normalizes raw review payloads; filters to album reviews
 
-Check with:
-```bash
-python3 --version
+recommend.py  PRODUCTION entry point: Firebase → engine → Firebase
+
+eval/         MEASUREMENT — everything for evaluating and improving the engine
+  evaluate.py    the harness → leaderboard (quality / real r1 / golden)
+  taste.py       human judge: 1–5 scoring, model duels, Elo, calibration stats
+  goldenset.py   golden-set + label-corpus scoring logic
+  humaneval.py   storage/stats for taste.py verdicts
+  make_fixture.py  turn a real Firebase user into a test profile
+  mock_ollama_server.py  fake LLM — run the harness with no model at all
+  site.py        static-site generator (your judging data → site/ for GitHub Pages)
+  fixtures/      the INPUTS  — saved user-review profiles (2 ship)
+  golden/        the JUDGE   — your good/bad lists + auto-grown label corpora
+  tests/         offline tests (no network, no model)
+  output/        gitignored — leaderboards, TSVs, per-model JSON, CSVs
+
+.env            all configuration (model, URLs, Firebase, Spotify) — not in git
 ```
 
-If you need to install or upgrade: https://www.python.org/downloads/
+The split is deliberate: tune the engine in `afrec/` without touching the
+evaluator, and change how we measure without touching the engine.
 
-### 2. Ollama running locally
+---
 
-Install from https://ollama.com and pull a model:
-```bash
-ollama pull llama3       # recommended starting point on 64GB RAM
-# or
-ollama pull mixtral      # stronger but slower
-# or
-ollama pull mistral      # good balance of speed and quality
-```
+## Setup (one time)
 
-Make sure it's running before you use the script:
-```bash
-ollama serve             # start the server (runs on localhost:11434)
-ollama list              # confirm your model is available
-```
+1. **Python 3.10+**, then:
+   ```bash
+   make setup            # venv + pip install (firebase-admin, requests, python-dotenv)
+   source venv/bin/activate
+   ```
+2. **`serviceAccountKey.json`** in the repo root — Firebase Console → Project
+   Settings → Service Accounts → *Generate new private key*. (gitignored; never commit.)
+3. **`.env`** in the repo root (gitignored):
 
-> You don't need to run `ollama serve` manually if the Ollama desktop app is open — it runs the server automatically.
+   | Key | What |
+   |---|---|
+   | `FIREBASE_PROJECT_ID` / `FIREBASE_REGION` | your project + where functions are deployed |
+   | `FIREBASE_WEB_API_KEY` | Project Settings → General (not a secret, but keep it out of git) |
+   | `LLM_BACKEND` | `llama.cpp` (default) or `ollama` |
+   | `LLM_URL` | e.g. `http://localhost:8092` (llama-server) or `http://localhost:11434` |
+   | `LLM_MODEL` | model name — cosmetic for llama-server (it serves whatever GGUF you loaded); a real pulled name for Ollama |
+   | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | for existence verification; leave empty to run without it |
 
-### 3. Firebase service account key
+4. **A local model server** (or point `LLM_URL` at a remote one):
+   ```bash
+   ./build/bin/llama-server -m /path/to/model.gguf --port 8092
+   curl http://localhost:8092/v1/models   # confirm it's up
+   ```
+5. **Firebase functions deployed** — `get_user_reviews` and
+   `submit_recommendation` must exist in your project (production runs only;
+   evaluation doesn't need them).
 
-This is how the script authenticates to Firebase without any user login flow.
+---
 
-1. Go to [Firebase Console](https://console.firebase.google.com) → your project → **Project Settings** → **Service Accounts**
-2. Click **Generate new private key** → confirm → download the JSON file
-3. Rename it to `serviceAccountKey.json` and place it in the same folder as `recommend.py`
+## I want to… (command menu)
 
-> ⚠️ Never commit this file to git. Add `serviceAccountKey.json` to your `.gitignore`.
+Every one of these is a `make` target — `make help` reprints this list.
+Model name/URL come from `.env`; override with `MODELS=...` where shown.
+`FB_UID` is the Firebase Auth UID (Console → Authentication → Users).
 
-### 4. Firebase Web API Key
+### Run the recommender on a real user (production — touches Firebase)
 
-This is a separate value needed to exchange auth tokens. It's not a secret (it's embedded in iOS apps), but keep it out of public repos anyway.
-
-Find it at: **Firebase Console → Project Settings → General → Web API key**
-
-### 5. Firebase Functions deployed
-
-The script calls two Firebase callable functions that must already be deployed in your project:
-
-| Function | What it does |
+| I want to… | Command |
 |---|---|
-| `get_user_reviews` | Returns all reviews for a given userId |
-| `submit_recommendation` | Creates a recommendation from LLMBot to a user |
+| Test safely: fetch reviews + generate recs, **submit nothing** | `make dry FB_UID=<uid>` |
+| Really run it and submit recommendations | `make run FB_UID=<uid>` |
+| Submit into a specific group instead of `default-group` | `make run FB_UID=<uid> GROUP=<id>` |
+| Run without Spotify verification | add `--no-spotify` to the `recommend.py` call |
 
-If either function isn't deployed yet, the script will fail at that step with an HTTP error.
+> **Always `make dry` first.**
 
----
+### Automated — measure with no human in the loop
 
-## Setup
+The machine runs the engine on your saved profiles and scores it. You don't
+watch anything; the golden set is just *data it reads* (see below). Proxies
+only tell you the engine *works* — they can't tell you it's *good* for you;
+that's the human-judging tier below.
 
-### Install Python dependencies
+| I want to… | Command |
+|---|---|
+| Full leaderboard: every profile, real Spotify checks | `make eval` |
+| Fast loop while editing `afrec/prompts.py` (one profile, seconds, no Spotify) | `make fast PROFILE=jazzy_hiphop` |
+| Dump every individual rec to a spreadsheet for eyeballing | `make csv PROFILE=... CSV=recs.csv` |
+| A/B a prompt change | run `eval/evaluate.py ... --output-dir out/before`, edit, re-run to `out/after`, diff the leaderboards (details: `eval/README.md`, playbook item 3) |
+| Sweep several models at once | `make eval MODELS=modelA,modelB` |
 
-```bash
-pip install firebase-admin requests
-```
+### Human, offline — write your taste down (once, per profile)
 
-Or if you prefer a virtual environment (recommended):
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install firebase-admin requests
-```
+You author `eval/golden/<profile>.json`: artists/albums that are clearly a
+good or bad pick for that listener — including **contrast pairs** (two
+near-identical picks the listener splits on: the real taste test) and
+**novel** entries (original-but-right moves, scored separately). You do
+this **ahead of time, without seeing any model output** — that's what makes
+the leaderboard's `golden`/`pairs`/`novel` columns model-independent. Then
+`make eval` scores every model against it, automated.
+→ [how to write a golden set](eval/golden/README.md)
 
-### Configure the script
+### Human, live — watch a model's output and judge it (the real signal)
 
-Open `recommend.py` and fill in the four values near the top:
+Interactive sessions: a model generates real recommendations and **you** make
+the call, one judgment at a time. Three tools, three different units of
+judgment — pick the one matching your question:
 
-```python
-SERVICE_ACCOUNT_PATH = "serviceAccountKey.json"   # path to your key file — fine to leave as-is if it's in the same folder
-FIREBASE_PROJECT_ID  = "your-project-id"           # e.g. "amongstfriends-prod"
-FIREBASE_REGION      = "us-central1"               # change only if your functions are deployed elsewhere
-FIREBASE_WEB_API_KEY = "your-firebase-web-api-key" # from Firebase Console → Project Settings → General
-OLLAMA_MODEL         = "llama3"                    # must match a model you have pulled locally
-```
+| I want to… | What *you* are evaluating | Command |
+|---|---|---|
+| Vet individual picks | **one recommendation at a time** — good / bad / unsure | `make label PROFILE=jazzy_hiphop` |
+| Grade an answer as a whole | **the entire response**, rated 1–5 — catches a great pick your golden list never mentioned | `make score PROFILE=... ROUNDS=2` |
+| Compare models head-to-head | **which of 2+ responses is better** for the same profile (shown as randomized A/B to fight position bias) | `make duel PROFILE=... MODELS=modelA,modelB` |
+| Review everything you've judged so far | (automated rollup of the above — nothing to watch) | `make stats` |
 
-Your folder should look like this when you're done:
-```
-recommend.py
-serviceAccountKey.json    ← downloaded from Firebase
-README.md
-```
+Every verdict appends to `eval/golden/*.jsonl` — over time this becomes your
+per-model human-preference corpus (and raw material for future fine-tuning/DPO).
 
----
+### Manage test cases (automated)
 
-## Running
+| I want to… | Command |
+|---|---|
+| Turn a real Firebase user into a profile (read-only fetch) | `make fixture FB_UID=<uid> NAME=alex` |
+| Exercise the harness with **no model at all** | `make mock` (then `--base-url http://localhost:11500`) |
+| Sanity-check everything offline (no network, no model) | `make test` |
 
-### Always dry-run first
+### See your results on a website
 
-This fetches reviews and generates recommendations but does **not** call `submit_recommendation`. Safe to run as many times as you want.
-
-```bash
-python3 recommend.py <userId> --dry-run
-```
-
-You'll see the full output — which reviews were found, what the LLM recommended, and what would have been submitted — without actually writing anything.
-
-### Run for real
-
-```bash
-python3 recommend.py <userId>
-```
-
-### With a specific group
-
-If you want recommendations submitted to a specific group (instead of `default-group`):
-
-```bash
-python3 recommend.py <userId> --group-id <groupId>
-```
-
-### Finding a userId
-
-User IDs are the Firebase Auth UIDs. You can find them in:
-- **Firebase Console → Authentication → Users** — listed in the UID column
-- Or from the example in the codebase: `feyXuB6dyGf7LZWUF1mQ5lSY96g2`
-
-### Full example
-
-```bash
-# Dry run for a specific user
-python3 recommend.py feyXuB6dyGf7LZWUF1mQ5lSY96g2 --dry-run
-
-# Real run
-python3 recommend.py feyXuB6dyGf7LZWUF1mQ5lSY96g2
-
-# Real run with a specific group
-python3 recommend.py feyXuB6dyGf7LZWUF1mQ5lSY96g2 --group-id some-group-id
-```
+| I want to… | Command |
+|---|---|
+| Show all my judging data (scores, duels, labels, golden sets, latest leaderboards) as a static site | `make site` → commit `site/` → GitHub Pages |
 
 ---
 
-## What the output looks like
+## What the numbers mean (30-second version)
+
+The leaderboard ranks models by:
+
+- **`quality`** — blended proxy: instruction-following + LLM confidence + **existence**
+- **`real r1`** — fraction of the model's *first-pass* albums that really exist on
+  Spotify. The honest anti-hallucination number. (`verified %` reads ~100% *by
+  construction* — the pipeline retries until something exists — so don't trust it alone.)
+- **`golden`** — your taste, applied automatically: how well the picks match the
+  good/bad list you wrote *in advance*. No human is needed at run time — the
+  human is only in the loop when you author/grow the list
+- **`pairs`** — contrast-pair accuracy: for each good/bad near-twin in your
+  golden set, did it rec the right side? (+1 / 0 / −1 per pair). The number
+  that separates taste-inference from "more of the same genre"
+- **`novel`** — how many *original-but-right* moves (adjacent scene,
+  cross-genre bridge) it reached for, out of the ones you listed
+
+The proxy metrics tell you the engine *works*; **your taste** (`label` / `score` /
+`duel` / golden sets) tells you it's *good*. The full explanation — and the
+ranked "how to improve the evaluation" playbook — is in
+[`eval/README.md`](eval/README.md).
+
+---
+
+## How a run works
 
 ```
-🎵 AmongstFriends Recommender
-   User:    feyXuB6dyGf7LZWUF1mQ5lSY96g2
-   Group:   default-group
-   Dry run: False
-──────────────────────────────────────────────────
-
-1. Initializing Firebase...
-   ✅ Firebase initialized
-
-2. Authenticating as LLMBot...
-   ✅ ID token obtained
-
-3. Fetching reviews...
-   Found 4 album reviews:
-   (Skipped 2 restaurant, 1 book review(s) — not 'album' type)
-   ★★★★★  Frank Ocean — Blonde
-   ★★★★☆  Bon Iver — For Emma, Forever Ago
-   ★★★☆☆  Holo — Astro
-          "Very nicely lowkey vibey electronic. Almost great but doesn't..."
-   ★★☆☆☆  Coldplay — Music of the Spheres
-
-4. Generating recommendations with Ollama (llama3)...
-   Got 3 recommendations:
-   • Sufjan Stevens — Carrie & Lowell (91% confidence)
-   • James Blake — Overgrown (88% confidence)
-   • Grouper — Ruins (85% confidence)
-
-5. Submitting recommendations...
-
-  [1/3] Sufjan Stevens — Carrie & Lowell (91% confidence)
-  Reason:  Shares the same quiet emotional intensity as Blonde...
-  Link:    https://open.spotify.com/search/Sufjan%20Stevens%20Carrie%20%26%20Lowell
-  ✅ Submitted — id: rec_abc123
-
-  [2/3] James Blake — Overgrown (88% confidence)
-  ...
-
-✅ Done!
+get_user_reviews()       local LLM                 submit_recommendation()
+  Firebase Function   →   artists → albums →      →   Firebase Function
+  (fetch album reviews)   verify → retry              (one call per rec)
 ```
+
+1. Authenticates as `LLMBot` with the service account key
+2. Fetches the user's reviews, keeps albums only
+3. Call 1: 8–10 new artists → Call 2: one album per artist
+4. Verifies each (artist, album) on Spotify; failures get one retry call where
+   the model is told what failed
+5. Submits each surviving recommendation
 
 ---
 
 ## Troubleshooting
 
-**`❌ Cannot reach Ollama`**
-Ollama isn't running. Either open the Ollama desktop app or run `ollama serve` in a terminal.
-
-**`❌ Failed to exchange custom token for ID token`**
-Your `FIREBASE_WEB_API_KEY` is wrong or missing. Double-check it in Firebase Console → Project Settings → General.
-
-**`❌ Firebase function 'get_user_reviews' returned HTTP 403`**
-The function is rejecting the `LLMBot` identity. Check that your Firebase Function doesn't whitelist specific UIDs — you may need to add a bypass for `LLMBot` in the function code.
-
-**`❌ Firebase function 'get_user_reviews' returned HTTP 404`**
-The function name doesn't match what's deployed, or it's deployed in a different region. Check `FIREBASE_REGION` in the script config.
-
-**`❌ Could not parse Ollama response as JSON`**
-The model returned something the script couldn't parse. This usually happens with smaller/older models that don't follow JSON instructions reliably. Try `llama3` or `mixtral` if you're on a smaller model. The raw output will be printed so you can see what it returned.
-
-**`⚠️ Only N review(s) — need at least 3 to run`**
-The user hasn't reviewed enough albums yet. The minimum is set to 3 (`MIN_REVIEWS_TO_RUN` in the script) to ensure the LLM has enough signal to make meaningful recommendations.
-
-**Recommendations are for albums the user already reviewed**
-This can occasionally happen with smaller models that don't reliably follow the "don't repeat these" instruction. The prompt includes an explicit list of already-reviewed albums, but larger models (llama3, mixtral) respect it much more consistently.
+| Symptom | Fix |
+|---|---|
+| `❌ Cannot reach llama-server` | Server isn't running or `LLM_URL` is wrong. `curl $LLM_URL/v1/models` |
+| `❌ Failed to exchange custom token for ID token` | Wrong/missing `FIREBASE_WEB_API_KEY` |
+| Firebase function `403` | Function is rejecting `LLMBot` — add a bypass for that UID in the function code |
+| Firebase function `404` | Function name/region mismatch — check `FIREBASE_REGION` |
+| `❌ Could not parse LLM response as JSON` | Small model not following JSON instructions; try a bigger GGUF (raw output is printed) |
+| `⚠️ Only N review(s) — need at least 3` | User hasn't reviewed enough albums (`MIN_REVIEWS_TO_RUN` env knob) |
+| Eval: `no fixtures found` | Missing files in `eval/fixtures/` |
+| Eval: spotify "off (no creds)" | Set `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` in `.env` |
+| Eval: golden `0g/0b` everywhere | Your golden lists don't overlap what the model suggests — broaden them (`eval/README.md`, playbook item 1) |
 
 ---
 
-## Tuning
+## Tuning knobs
 
-A few constants at the top of `recommend.py` you might want to adjust:
-
-| Constant | Default | What it does |
-|---|---|---|
-| `OLLAMA_MODEL` | `llama3` | Which local model to use |
-| `MIN_REVIEWS_TO_RUN` | `3` | Skip users with fewer album reviews than this |
-| `MAX_REVIEWS_FOR_LLM` | `20` | How many reviews to include in the prompt (higher = more context, slower) |
-| `BOT_USER_ID` | `LLMBot` | The `fromUserId` sent in each `submit_recommendation` call |
-
----
-
-## Adding a new recommendation type in the future
-
-When you're ready to support restaurants, books, etc.:
-
-1. In `recommend.py`, add a `build_prompt_restaurant()` function modelled after `build_prompt_album()`
-2. Add a case for it in the `build_prompt()` dispatcher
-3. Add a Spotify-equivalent link builder if relevant (or pass `None` for `link`)
-4. Pass `--type restaurant` on the CLI (you'd also add that argument to the argparse block)
-
-The `parse_reviews()` filtering and the `SUPPORTED_TYPES` dict are already set up to handle this — only the prompt and link logic need adding.
+- **`afrec/prompts.py`** — the prompts (artists / albums / retry). This is *the*
+  file to edit when you want to change what the engine asks for.
+- Env: `MIN_REVIEWS_TO_RUN` (default 3), `SPOTIFY_MATCH_THRESHOLD` (default 0.5),
+  `GROUP_ID` (default `default-group`), plus the `.env` table above.
+- CLI: `--temperature` on the eval tools (lower = less creative, fewer hallucinations).

@@ -1,0 +1,9 @@
+{
+  "profile": "wyatt",
+  "description": "Good/bad picks for the wyatt profile (real user Jdwvuss3sFch1QiBvT7BanC0CI92).",
+  "annotated_by": "wyatt (seed — fill from interactive labels)",
+  "annotated_at": "2026-09-07",
+  "notes": "EMPTY SEED — 0 good / 0 bad means the golden column scores +0.000 for everyone (no discrimination yet). Judge the engine with `evaluate.py --interactive --profile wyatt` and promote the artists that keep coming up good/bad here. Entry = string OR {\"artist\": ..., \"album\": ... (optional), \"note\": ...}.",
+  "good": [],
+  "bad": []
+}

@@ -1,0 +1,64 @@
+{
+  "profile": "jazzy_hiphop",
+  "description": "Deep into jazz-rooted hip-hop: sample-flipped, head-nod boom-bap with real digging. Hates playlist-filler lo-fi. STRUCTURAL DRAFT — tweak the details.",
+  "source": "hand-written fixture",
+  "notes": "Focused single-lane profile: the test is subtlety WITHIN jazz-hip-hop (canon vs filler, digging depth, mood), plus one clean novel bridge out of the lane. Edit freely — the golden set (eval/golden/jazzy_hiphop.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Donuts", "metadata": { "albumName": "Donuts", "artistName": "J Dilla" } },
+      "rating": 5,
+      "reviewId": "jh-1",
+      "text": "Dusty, unfiltered, the sample flips feel alive. You can hear the actual records he dug. This is the standard everything else gets compared to.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Modal Soul", "metadata": { "albumName": "Modal Soul", "artistName": "Nujabes" } },
+      "rating": 5,
+      "reviewId": "jh-2",
+      "text": "Melancholy head-nod. Perfect loops, real jazz chops under the rap. Makes me want to write stuff.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Like Water for Chocolate", "metadata": { "albumName": "Like Water for Chocolate", "artistName": "Common" } },
+      "rating": 4,
+      "reviewId": "jh-3",
+      "text": "Q-Tip production, classic swing, still timeless. The kind of jazz-hip-hop where the horns actually matter.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Soul Food", "metadata": { "albumName": "Soul Food", "artistName": "Madlib" } },
+      "rating": 4,
+      "reviewId": "jh-4",
+      "text": "Obscure records chopped up in ways nobody else would think of. Deep digging as a whole art form.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "The Low End Theory", "metadata": { "albumName": "The Low End Theory", "artistName": "A Tribe Called Quest" } },
+      "rating": 4,
+      "reviewId": "jh-5",
+      "text": "Where it all started for me. Jazz-funk bass lines, playful but never sloppy.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "All I Need (is) Chillhop", "metadata": { "albumName": "All I Need (is) Chillhop", "artistName": "Tomppabeats" } },
+      "rating": 2,
+      "reviewId": "jh-6",
+      "text": "Cute but playlist filler. Same ten loops in different keys, no soul in the digging. Background noise, not music I seek out.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Coffee Shop Beats Vol. 3", "metadata": { "albumName": "Coffee Shop Beats Vol. 3", "artistName": "Lofi Beats Collective" } },
+      "rating": 2,
+      "reviewId": "jh-7",
+      "text": "The 'jazzy' here is a sax loop over a trap kick. Feels generated. If the whole album could be described as 'vibes', that's the problem.",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}
