@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Build a static site (site/) from your local judging data — for GitHub Pages.
+Build a static site (docs/) from your local judging data — for GitHub Pages.
+
+GitHub Pages can only serve the repo root or the /docs folder from a branch,
+so the site is generated into docs/ — set Pages source to "main branch, /docs".
 
 Reads (never writes):
   eval/golden/labeled.jsonl   — per-rec good/bad/unsure labels
@@ -15,12 +18,12 @@ Reads (never writes):
                                   reference tab (model notes are hardcoded in MODEL_NOTES)
 
 Writes a self-contained static site (no build step, no CDN, works offline):
-  site/index.html, site/style.css, site/app.js, site/data.js
+  docs/index.html, docs/style.css, docs/app.js, docs/data.js
 (leaderboards are rendered client-side from the markdown embedded in data.js)
 
 Usage:
-  python eval/site.py            # → regenerate site/
-Then `git add site && git push` and GitHub Pages (source: main branch, /site
+  python eval/site.py            # → regenerate docs/
+Then `git add docs && git push` and GitHub Pages (source: main branch, /docs
 folder) serves it. Nothing here leaves your machine except the push.
 """
 
@@ -37,7 +40,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 GOLDEN_DIR = HERE / "golden"
 OUTPUT_DIR = HERE / "output"
-SITE_DIR = ROOT / "site"
+SITE_DIR = ROOT / "docs"
 MAX_LEADERBOARDS = 10
 
 # columns we coerce to numbers when parsing runs_*.tsv (older files may lack some)
@@ -702,12 +705,12 @@ def main() -> None:
     )
 
     n_lb = len(data["leaderboards"])
-    print(f"✅ site/ rebuilt — {data['summary']['counts']['labels']} labels, "
+    print(f"✅ docs/ rebuilt — {data['summary']['counts']['labels']} labels, "
           f"{data['summary']['counts']['scores']} scores, "
           f"{data['summary']['counts']['duels']} duels, "
           f"{data['summary']['counts']['golden_sets']} golden sets, "
           f"{data['summary']['counts']['runs']} runs, {n_lb} leaderboards")
-    print("   → open site/index.html, or `git add site && git push` for GitHub Pages")
+    print("   → open docs/index.html, or `git add docs && git push` for GitHub Pages (source: main branch, /docs)")
 
 
 if __name__ == "__main__":

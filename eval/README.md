@@ -181,10 +181,11 @@ python eval/tests/test_humaneval.py
 ### See it all on a static website
 
 ```bash
-make site    # → site/  (self-contained HTML, reads your local judging data)
+make site    # → docs/  (self-contained HTML, reads your local judging data)
 ```
 
-Open `site/index.html` locally, or commit `site/` and point GitHub Pages at
+Open `docs/index.html` locally, or commit `docs/` and point GitHub Pages at the
+`main` branch, `/docs` folder (Pages can only serve the root or /docs from a branch)
 it — scores, duels + Elo, labels, your golden sets, and the latest
 leaderboards, regenerated from local files on each push. No services, no
 APIs: `eval/site.py` only reads `eval/golden/*.jsonl` and the newest

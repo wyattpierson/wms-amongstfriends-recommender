@@ -47,7 +47,7 @@ eval/         MEASUREMENT — everything for evaluating and improving the engine
   humaneval.py   storage/stats for taste.py verdicts
   make_fixture.py  turn a real Firebase user into a test profile
   mock_ollama_server.py  fake LLM — run the harness with no model at all
-  site.py        static-site generator (your judging data → site/ for GitHub Pages)
+  site.py        static-site generator (your judging data → docs/ for GitHub Pages)
   fixtures/      the INPUTS  — saved user-review profiles (2 ship)
   golden/        the JUDGE   — your good/bad lists + auto-grown label corpora
   tests/         offline tests (no network, no model)
@@ -167,7 +167,7 @@ per-model human-preference corpus (and raw material for future fine-tuning/DPO).
 
 | I want to… | Command |
 |---|---|
-| Show all my judging data (scores, duels, labels, golden sets, latest leaderboards) as a static site | `make site` → commit `site/` → GitHub Pages |
+| Show all my judging data (scores, duels, labels, golden sets, latest leaderboards) as a static site | `make site` → commit `docs/` → GitHub Pages (source: main branch, /docs) |
 
 ---
 
