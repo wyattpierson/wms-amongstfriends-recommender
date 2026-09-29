@@ -22,6 +22,8 @@ th, td { border:1px solid var(--line); padding:6px 10px; text-align:left; vertic
 th { background:#1c2029; color:var(--dim); font-weight:600; white-space:nowrap; }
 td.num, th.num { text-align:right; }
 tr:hover td { background:#1a1f29; }
+th.sortable { cursor:pointer; user-select:none; } th.sortable:hover { color:var(--accent); }
+tr.failed td { opacity:0.55; } tr.untrusted td { background:#2a1a1e; }
 .good { color:var(--good); } .bad { color:var(--bad); } .mid { color:var(--mid); }
 .dim { color:var(--dim); }
 .bar { background:#232936; border-radius:4px; height:10px; width:120px; display:inline-block; vertical-align:middle; }

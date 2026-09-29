@@ -1,0 +1,6 @@
+{
+  "_comment": "Per-model extra options merged into every generate() call. See model_options.py. enable_thinking=false is the official no-think switch for Qwen3; it is a no-op for all other models in the pool.",
+  "Qwen3.8-27B-Q8_0": {
+    "chat_template_kwargs": { "enable_thinking": false }
+  }
+}

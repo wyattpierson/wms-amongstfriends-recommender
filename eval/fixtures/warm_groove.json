@@ -1,0 +1,40 @@
+{
+  "profile": "warm_groove",
+  "description": "Loves the warm, groove-first, lane-crossing corner: bouncy, meticulously produced records (Kaytranada), hazy neo-soul (The Internet), lyric-first art rap (Noname), and literary hiphop (Jamila Woods). STRUCTURAL DRAFT — tweak the details.",
+  "source": "hand-written fixture",
+  "notes": "Focused profile: four loved albums spanning electro-funk, neo-soul, and art-rap lanes. The test is whether the engine can hold that range (club-ready grooves AND word-driven art rap) without collapsing to one centroid. Edit freely — the golden set (eval/golden/warm_groove.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "99.9%", "metadata": { "albumName": "99.9%", "artistName": "Kaytranada" } },
+      "rating": 5,
+      "reviewId": "ph-1",
+      "text": "Just pure momentum. The production is so good — you can hear how much he toiled over every little detail, the swing in the drums, the way the keys sit under the bass. It's hiphop but it's also dance music, and I don't know anyone else who makes it feel this alive. Been on repeat for years",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Ego Death", "metadata": { "albumName": "Ego Death", "artistName": "The Internet" } },
+      "rating": 5,
+      "reviewId": "ph-2",
+      "text": "Perfect. Every song is a bop that's also got real heart — Syd's voice, that hazy neo-soul production, it all fits together so tight that there's not one dud. It sounds like a specific time and place and somehow still doesn't feel dated. A flawless record",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Telefone", "metadata": { "albumName": "Telefone", "artistName": "Noname" } },
+      "rating": 5,
+      "reviewId": "ph-3",
+      "text": "Noname is the best lyricist doing this right now and this is the proof. No skits, no padding, just song to song — tight verses, real ideas, and the production stays out of the way of her writing while still being beautiful. I can listen to the whole thing top to bottom with zero skipping. The most 'hiphop is a real art form' record I've ever heard",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "LEGACY! LEGACY!", "metadata": { "albumName": "LEGACY! LEGACY!", "artistName": "Jamila Woods" } },
+      "rating": 5,
+      "reviewId": "ph-4",
+      "text": "This one hit different. It's the most literary and ambitious thing she's done — history, family, Chicago, all of it woven into songs that still swing. You can hear the jazz and the spoken word and the hiphop all braided together, and it never turns into a lecture. It rewards rereading like a book but plays like a record. One of the great hiphop albums of the decade",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

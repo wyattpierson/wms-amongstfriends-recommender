@@ -21,6 +21,11 @@ Subcommands:
           win-rates, Elo ratings, and confidence calibration (does the
           model's self-claim track YOUR ratings?).
 
+  pending The ASYNC LISTENING QUEUE: every rec you marked 'unsure' (u) in an
+          interactive session — the ones you couldn't judge without actually
+          listening. Plain call lists the queue; `pending --judge` walks it
+          after you've listened and appends final good/bad verdicts.
+
 Records (append-only JSONL in eval/golden/, next to labeled.jsonl):
   scores.jsonl  every 1–5 rating, with the full recs so you can revisit them
   duels.jsonl   every ranking, including each model's recs
@@ -51,7 +56,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import evaluate as ev                      # noqa: E402  (bootstrap + shared helpers)
+import goldenset as gs                     # noqa: E402  (labeled.jsonl — per-rec human corpus)
+import model_options as mopts              # noqa: E402  (per-model LLM options, e.g. Qwen no-think)
 import humaneval as he                     # noqa: E402  (score/duel storage + stats)
+from afrec import agents as afrec_agents   # noqa: E402  (versioned engine playbooks)
 from afrec.llm import LLMError             # noqa: E402
 
 
@@ -96,10 +104,11 @@ def _print_response(recs: list[dict], letter: str = "") -> None:
 
 
 def _generate(profile: dict, model: str, base_url: str, temperature: float,
-              verifier) -> "ev.pipeline.RunOutcome":
-    return ev.pipeline.run(
+              verifier, agent: "afrec_agents.Agent") -> "ev.pipeline.RunOutcome":
+    return agent.run(
         profile["reviews"], ev.make_llm(model, base_url),
         verifier=verifier, temperature=temperature,
+        extra_options=mopts.options_for(model),
     )
 
 
@@ -139,7 +148,7 @@ def _read_score() -> int | None:
 
 
 def run_score(profile: dict, model: str, base_url: str, temperature: float,
-              rounds: int, use_spotify: bool) -> None:
+              rounds: int, use_spotify: bool, agent: "afrec_agents.Agent") -> None:
     verifier = None
     if use_spotify:
         tok = ev.spotify.get_token()
@@ -147,11 +156,11 @@ def run_score(profile: dict, model: str, base_url: str, temperature: float,
             verifier = ev.spotify.verifier_for(tok)
 
     for rnd in range(1, rounds + 1):
-        print(f"\n🎧 SCORE — profile: {profile['name']}   model: {model}   "
+        print(f"\n🎧 SCORE — profile: {profile['name']}   model: {model}   agent: {agent.tag}   "
               f"(round {rnd}/{rounds})   Spotify: {'on' if verifier else 'off'}")
         t0 = time.time()
         try:
-            outcome = _generate(profile, model, base_url, temperature, verifier)
+            outcome = _generate(profile, model, base_url, temperature, verifier, agent)
         except LLMError as e:
             print(f"❌ Generation failed for {model}: {e}", file=sys.stderr)
             return
@@ -169,7 +178,7 @@ def run_score(profile: dict, model: str, base_url: str, temperature: float,
         note = _ask("   note (optional, enter to skip): ", allow_eof=True)
 
         he.append_score(
-            profile=profile["name"], model=model, score=score, note=note,
+            profile=profile["name"], model=model, agent=agent.tag, score=score, note=note,
             recs=recs, spotify_on=bool(verifier), base_url=base_url,
             temperature=temperature, wallclock_s=round(time.time() - t0, 2),
             round=rnd,
@@ -190,21 +199,21 @@ def run_score(profile: dict, model: str, base_url: str, temperature: float,
 # ── duel ──────────────────────────────────────────────────────────────────────
 
 def run_duel(profile: dict, models: list[str], base_url: str, temperature: float,
-             use_spotify: bool) -> None:
+             use_spotify: bool, agent: "afrec_agents.Agent") -> None:
     verifier = None
     if use_spotify:
         tok = ev.spotify.get_token()
         if tok:
             verifier = ev.spotify.verifier_for(tok)
 
-    print(f"\n⚔️  DUEL — profile: {profile['name']}   contenders: {', '.join(models)}")
+    print(f"\n⚔️  DUEL — profile: {profile['name']}   contenders: {', '.join(models)}   agent: {agent.tag}")
     print(f"   Spotify: {'on' if verifier else 'off'}")
 
     responses: dict[str, list[dict]] = {}
     for model in models:
         print(f"\n   … generating for {model}")
         try:
-            outcome = _generate(profile, model, base_url, temperature, verifier)
+            outcome = _generate(profile, model, base_url, temperature, verifier, agent)
         except LLMError as e:
             print(f"❌ {model} failed: {e} — can't duel without it.", file=sys.stderr)
             return
@@ -269,7 +278,7 @@ def run_duel(profile: dict, models: list[str], base_url: str, temperature: float
     note = _ask("note (optional, enter to skip): ", allow_eof=True)
     path = he.append_duel(
         profile=profile["name"], ranking=ranking, unranked=remaining,
-        ties=ties, note=note,
+        ties=ties, note=note, agent=agent.tag,
         recs_by_model=responses, spotify_on=bool(verifier), base_url=base_url,
         temperature=temperature,
     )
@@ -298,16 +307,24 @@ def run_stats() -> int:
     print(f"\n📊 Human-taste statistics   ({len(scores)} response scores, "
           f"{len(duels)} duels)\n")
 
+    # Group scores by (model, agent) — the agent is the engine's playbook,
+    # and the same model can be judged under several versions over time.
+    score_keys: list[tuple[str, str]] = []
+    for r in scores:
+        key = (r.get("model") or "?", (r.get("agent") or "").strip())
+        if key not in score_keys:
+            score_keys.append(key)
     score_rows = []
-    for m in models:
-        s = he.score_stats(model=m)
+    for m, ag in score_keys:
+        s = he.score_stats(model=m, agent=ag or None)
         if s["n"]:
-            score_rows.append((m, s))
+            score_rows.append((m, ag, s))
     if score_rows:
-        print("  Response scores (1–5):")
-        print(f"    {'model':<24} {'n':>3} {'avg':>5}   {'bad':>3} {'neut':>4} {'good':>4}   dist 1→5")
-        for m, s in sorted(score_rows, key=lambda kv: -(kv[1]["avg"] or 0)):
-            print(f"    {m:<24} {s['n']:>3} {s['avg']:>5.2f}   "
+        print("  Response scores (1–5)   [agent = engine playbook that generated the response]")
+        print(f"    {'model / agent':<38} {'n':>3} {'avg':>5}   {'bad':>3} {'neut':>4} {'good':>4}   dist 1→5")
+        for m, ag, s in sorted(score_rows, key=lambda kv: -(kv[2]["avg"] or 0)):
+            label = f"{m}" + (f" [{ag}]" if ag else "")
+            print(f"    {label:<38} {s['n']:>3} {s['avg']:>5.2f}   "
                   f"{s['bad']:>3} {s['neutral']:>4} {s['good']:>4}   "
                   f"[{s['distribution'][1]} {s['distribution'][2]} "
                   f"{s['distribution'][3]} {s['distribution'][4]} {s['distribution'][5]}]")
@@ -360,7 +377,90 @@ def run_stats() -> int:
                     print(f"      you said {name:<8} (r{lo}–{hi})  → model claimed {sum(vals) / len(vals):.2f} avg  ({len(vals)} responses){flag}")
         print()
 
+    pending_n = sum(1 for r in gs.load_labeled() if r.get("label") == "unknown")
+    if pending_n:
+        print(f"  Pending 'unsure' labels (to-listen queue): {pending_n} — see `taste.py pending`\n")
     print(f"\n  Records:  {he.SCORES_LOG}\n            {he.DUELS_LOG}\n")
+    return 0
+
+
+def run_pending(args) -> int:
+    """
+    The async listening queue. In an interactive session, recs you can't judge
+    without actually listening get marked 'u' (unsure) and land in labeled.jsonl
+    as label="unknown" — they don't count toward good_rate until resolved.
+
+    Plain `pending`: list the queue (deduped to unique artist+album) so you can
+    drop them in a Spotify playlist and listen whenever.
+    `pending --judge`: walk the queue and append final good/bad verdicts.
+    The corpus is append-only, so resolving just adds a new row; the old
+    "unknown" row stays but is ignored by the stats.
+    """
+    rows = [r for r in gs.load_labeled() if r.get("label") == "unknown"]
+    if not rows:
+        print("No pending 'unsure' labels — the queue is empty.")
+        print("(In an interactive session, press u on a rec you need to listen to first.)")
+        return 0
+
+    # Dedupe to unique artist+album for the listening queue (same rec across
+    # sessions/models = one thing to listen to).
+    seen: dict[tuple, dict] = {}
+    for r in rows:
+        key = ((r.get("artist") or "").strip().lower(), (r.get("album") or "").strip().lower())
+        e = seen.get(key)
+        if e is None:
+            e = dict(r)
+            e["n"] = 0
+            e["models"] = set()
+            seen[key] = e
+        e["n"] += 1
+        e["models"].add(r.get("model") or "?")
+    queue = sorted(seen.values(), key=lambda e: e.get("ts") or "")
+
+    print(f"🎧 Pending — {len(queue)} unique rec(s) you marked 'unsure' "
+          f"({len(rows)} labels total) — your to-listen queue:\n")
+    for i, e in enumerate(queue, 1):
+        models = ",".join(sorted(e["models"]))
+        print(f"{i}. {e.get('artist')} — {e.get('album') or '?'}")
+        print(f"   profile={e.get('profile')}  model={models}  agent={e.get('agent') or '?'}  "
+              f"first seen {str(e.get('ts', '?'))[:10]}  seen×{e['n']}")
+        if (e.get("note") or "").strip():
+            print(f"   note: {e['note'].strip()}")
+        if (e.get("reason") or "").strip():
+            print(f"   model's reason: {e['reason'].strip()[:140]}")
+
+    if not args.judge:
+        print("\nQueue these up in Spotify, listen whenever, then run:")
+        print("  python eval/taste.py pending --judge")
+        return 0
+
+    print("\n── judging (verdicts append to labeled.jsonl; the old 'unknown' rows stay but don't count) ──")
+    resolved = 0
+    for i, e in enumerate(queue, 1):
+        print(f"{i}. {e.get('artist')} — {e.get('album') or '?'}")
+        lab = None
+        while lab is None:
+            ans = _ask("   good / bad / skip (g / b / s): ", allow_eof=True).lower()
+            if ans in ("g", "good"):
+                lab = "good"
+            elif ans in ("b", "bad"):
+                lab = "bad"
+            elif ans in ("s", "skip", ""):
+                break
+        if lab is None:
+            print("   → skipped\n")
+            continue
+        note = _ask("   note (enter to skip): ", allow_eof=True)
+        gs.append_label(
+            profile=e.get("profile") or "", artist=e.get("artist") or "",
+            album=e.get("album") or "", label=lab,
+            model=e.get("model") or "", agent=e.get("agent") or "",
+            note=f"[resolves unsure] {note}".strip(),
+            reason=e.get("reason") or "", source="pending-judge",
+        )
+        resolved += 1
+        print(f"   → {lab}\n")
+    print(f"Resolved {resolved} of {len(queue)} pending recs. `taste.py stats` now counts them.")
     return 0
 
 
@@ -373,6 +473,10 @@ def main() -> int:
                              "Default: all profiles.")
     common.add_argument("--models", default=os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL") or "llama3",
                         help="Comma-separated model names (default: $LLM_MODEL or llama3)")
+    common.add_argument("--agent", default=afrec_agents.selected_agent().tag,
+                        help="Agent version — the engine's playbook (prompts/call flow). "
+                             "Tag like 'artist-then-album@v1' or bare id 'album-first' (latest). "
+                             "Defaults to the selected agent (AFREC_AGENT in .env). See: make agents")
     common.add_argument("--base-url", default=os.getenv("LLM_URL") or os.getenv("OLLAMA_URL") or "http://localhost:8092")
     common.add_argument("--temperature", type=float, default=0.7)
     common.add_argument("--no-spotify", action="store_true",
@@ -390,18 +494,25 @@ def main() -> int:
                    help="rank responses from two or more models")
     sub.add_parser("stats", parents=[common],
                    help="show score + duel standings")
+    p_pending = sub.add_parser("pending",
+                   help="list (or with --judge, re-judge) 'unsure' labels — the to-listen queue")
+    p_pending.add_argument("--judge", action="store_true",
+                           help="walk the queue and append final good/bad verdicts")
     args = parser.parse_args()
 
     if args.cmd in (None, "score", "duel") and not sys.stdin.isatty():
         print("⚠️  stdin is not a TTY — use a real terminal for interactive judging "
               "(or pipe answers, e.g. `printf '4\\n\\n' | ...`).", file=sys.stderr)
 
+    if args.cmd == "stats":
+        return run_stats()
+
+    if args.cmd == "pending":   # reads labeled.jsonl only — no models/profiles needed
+        return run_pending(args)
+
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     if not models:
         parser.error("--models must name at least one model")
-
-    if args.cmd == "stats":
-        return run_stats()
 
     if args.cmd == "duel" and len(models) < 2:
         parser.error("duel needs at least two models, e.g. --models llama3,qwen2.5")
@@ -410,14 +521,20 @@ def main() -> int:
 
     profs = _pick_profiles(args)
 
+    if args.cmd in ("score", "duel"):
+        try:
+            agent = afrec_agents.get_agent(args.agent)
+        except ValueError as e:
+            parser.error(str(e))
+
     for prof in profs:
         if args.cmd == "score":
             for model in models:
                 run_score(prof, model, args.base_url, args.temperature,
-                          args.rounds, use_spotify=not args.no_spotify)
+                          args.rounds, use_spotify=not args.no_spotify, agent=agent)
         else:
             run_duel(prof, models, args.base_url, args.temperature,
-                     use_spotify=not args.no_spotify)
+                     use_spotify=not args.no_spotify, agent=agent)
     return 0
 
 

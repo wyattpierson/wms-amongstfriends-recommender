@@ -47,6 +47,25 @@ REPO_ROOT    = EVAL_DIR.parent                     # …/amongstfriends-recommen
 FIXTURES_DIR = EVAL_DIR / "fixtures"
 OUTPUT_DIR   = EVAL_DIR / "output"
 
+# Trust cutoff: if ≤25% of a model's round-1 recs are real (i.e. ≥75% are albums
+# that don't exist on Spotify), the model/agent pairing is UNTRUSTED — its output
+# can't be relied on, so it's not worth spending human evaluation time on it.
+UNTRUSTED_REAL_R1_MAX = 0.25
+
+
+def thinking_override(args) -> bool | None:
+    """CLI override for per-model thinking (eval/model_options.json).
+
+    None = use the per-model file; True/False = force on/off for this run.
+    """
+    if args.thinking and args.no_thinking:
+        raise SystemExit("❌ --thinking and --no-thinking are mutually exclusive.")
+    if args.thinking:
+        return True
+    if args.no_thinking:
+        return False
+    return None
+
 sys.path.insert(0, str(REPO_ROOT))                 # for `afrec.*`
 sys.path.insert(0, str(EVAL_DIR))                  # for the sibling `goldenset` module
 
@@ -68,7 +87,9 @@ except Exception:
     _tiny_load_dotenv(REPO_ROOT / ".env")
 
 import goldenset as golden_mod                     # eval/goldenset.py (same directory)
+import model_options as mopts                      # eval/model_options.py (per-model LLM options)
 from afrec import pipeline, spotify               # the engine (repo root)
+from afrec import agents as afrec_agents          # the versioned playbooks the engine runs as
 from afrec.llm import make_llm, LLMError, LLMConnectionError, LLMTimeoutError, LLMHTTPError
 from afrec.reviews import parse_reviews
 
@@ -230,7 +251,12 @@ def evaluate_model(
     base_url: str,
     temperature: float,
     use_spotify: bool,
+    agent: "afrec_agents.Agent",
+    thinking: bool | None = None,
 ) -> dict:
+    # Per-model extra options (eval/model_options.json), with the CLI
+    # thinking override applied. See model_options.py for the rationale.
+    extra_options = mopts.merged(model, thinking)
     llm = make_llm(model, base_url=base_url)
     spotify_token: str | None = None
     verifier = None
@@ -243,7 +269,8 @@ def evaluate_model(
     for prof in profiles:
         t0 = time.time()
         try:
-            outcome = pipeline.run(prof["reviews"], llm, verifier=verifier)
+            outcome = agent.run(prof["reviews"], llm, verifier=verifier,
+                                extra_options=extra_options)
             metrics = score_outcome(prof, outcome, bool(verifier))
             status = "ok"
             err = None
@@ -272,6 +299,7 @@ def evaluate_model(
         if err:
             metrics["error"] = err
         metrics["wallclock_s"] = round(time.time() - t0, 2)
+        metrics["agent"] = agent.tag    # which playbook produced this, whatever happened
 
         per_profile[prof["name"]] = {
             "metrics": metrics,
@@ -281,6 +309,7 @@ def evaluate_model(
     good = [p["metrics"]["quality"] for p in per_profile.values() if p["metrics"].get("ok")]
     return {
         "model": model,
+        "agent": agent.tag,
         "base_url": base_url,
         "spotify": bool(verifier),
         "avg_quality": round(sum(good) / len(good), 3) if good else 0.0,
@@ -327,20 +356,32 @@ def render_leaderboard(results: list[dict], args) -> str:
 
     lines = []
     lines.append(f"# AmongstFriends engine leaderboard — {now}\n")
-    lines.append(f"Base URL: `{args.base_url}`   Spotify: {'on' if any(r['spotify'] for r in rows) else 'off'}   "
+    agent_txt = rows[0].get("agent", "?") if rows else "?"
+    lines.append(f"Agent: `{agent_txt}`   "
+                 f"Base URL: `{args.base_url}`   Spotify: {'on' if any(r['spotify'] for r in rows) else 'off'}   "
                  f"temperature: {args.temperature}   profiles: {len(rows[0]['per_profile']) if rows else 0}\n")
-    lines.append("| rank | model | avg quality | avg real (r1, Spotify) | avg golden (humans) | pairs | novel | ok/total | avg wallclock (s) |")
-    lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| rank | model | agent | avg quality | avg real (r1, Spotify) | avg golden (humans) | pairs | novel | ok/total | avg wallclock (s) |")
+    lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|")
+    untrusted: list[str] = []
     for i, r in enumerate(rows, 1):
         ggs = avg_golden(r)
         gtxt = f"{ggs:+.3f}" if ggs is not None else "n/a"
         art = avg_real(r)
         atxt = f"{art:.0%}" if art is not None else "n/a"   # not measured when Spotify off
+        untr = art is not None and art <= UNTRUSTED_REAL_R1_MAX
+        if untr:
+            untrusted.append(r["model"])
         aps = avg_pair(r)
         ptxt = f"{aps:+.2f}" if aps is not None else "n/a"
         nh, nt = novel_totals(r)
         ntxt = f"{nh}/{nt}" if nt else "n/a"
-        lines.append(f"| {i} | {r['model']} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {ptxt} | {ntxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
+        flag = " ⚠️ UNTRUSTED" if untr else ""
+        lines.append(f"| {i} | {r['model']}{flag} | {r.get('agent', '?')} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {ptxt} | {ntxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
+    if untrusted:
+        lines.append("")
+        lines.append(f"> ⚠️ **UNTRUSTED** — avg real r1 ≤ {UNTRUSTED_REAL_R1_MAX:.0%} (≥75% of round-1 recs "
+                     f"don't exist on Spotify; the pairing can't be trusted, skip human eval on it): "
+                     + ", ".join(untrusted))
 
     # Per-profile detail for each model
     for r in rows:
@@ -362,18 +403,21 @@ def render_leaderboard(results: list[dict], args) -> str:
             else:
                 r1col = f"{m['round1_found'] or 0}/{m['raw_candidates'] or 0} ({m['raw_existence_rate']:.0%})"
                 resc = str(m.get("retry_rescued", 0))
+            status = m.get("status") or ""
+            if m.get("raw_existence_rate") is not None and m["raw_existence_rate"] <= UNTRUSTED_REAL_R1_MAX:
+                status = (status + " ⚠️untrusted").strip()
             lines.append(
                 f"| {name} | {'✅' if m.get('ok') else '❌'} | {m['n_recs']} | {m['n_new_artists']} "
-                f"| {r1col} | {resc} | {ggb} | {gcol} | {pcol} | {ncol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {m.get('status')} |"
+                f"| {r1col} | {resc} | {ggb} | {gcol} | {pcol} | {ncol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
             )
     return "\n".join(lines)
 
 
 def write_tsv(results: list[dict], path: Path) -> None:
     import csv
-    cols = ["model", "profile", "status", "ok", "n_recs", "n_new_artists",
+    cols = ["model", "agent", "profile", "status", "ok", "n_recs", "n_new_artists",
             "raw_candidates", "round1_found", "round1_missing", "retry_rescued",
-            "raw_existence_rate", "final_existence_rate",
+            "raw_existence_rate", "final_existence_rate", "untrusted",
             "golden_good", "golden_bad", "golden_score",
             "golden_pair_points", "golden_pair_total", "golden_pair_score",
             "golden_novel_hits", "golden_novel_total",
@@ -385,12 +429,14 @@ def write_tsv(results: list[dict], path: Path) -> None:
             for name, block in r["per_profile"].items():
                 m = block["metrics"]
                 w.writerow([
-                    r["model"], name, m.get("status"), int(bool(m.get("ok"))),
+                    r["model"], m.get("agent", r.get("agent", "")), name, m.get("status"), int(bool(m.get("ok"))),
                     m["n_recs"], m["n_new_artists"],
                     m.get("raw_candidates", ""), m.get("round1_found", ""),
                     m.get("round1_missing", ""), m.get("retry_rescued", ""),
                     (f"{m['raw_existence_rate']:.3f}" if m.get("raw_existence_rate") is not None else ""),
                     (f"{m['final_existence_rate']:.3f}" if m.get("final_existence_rate") is not None else ""),
+                    (str(int(m["raw_existence_rate"] <= UNTRUSTED_REAL_R1_MAX))
+                     if m.get("raw_existence_rate") is not None else ""),
                     m.get("golden_good", ""), m.get("golden_bad", ""),
                     (f"{m['golden_score']:.3f}" if m.get("golden_score") is not None else ""),
                     m.get("golden_pair_points", ""), m.get("golden_pair_total", ""),
@@ -419,7 +465,9 @@ def _read_label() -> str:
 
 
 def run_interactive(profs: list[dict], model: str, base_url: str,
-                    temperature: float, use_spotify: bool) -> int:
+                    temperature: float, use_spotify: bool,
+                    agent: "afrec_agents.Agent",
+                    thinking: bool | None = None) -> int:
     """
     Generate recs for one profile, present them one by one, and record
     human good/bad verdicts into the cumulative labeled corpus (eval/golden/labeled.jsonl).
@@ -435,13 +483,14 @@ def run_interactive(profs: list[dict], model: str, base_url: str,
             print("   ⚠️  no Spotify creds found — running interactive WITHOUT verification",
                   file=sys.stderr)
 
-    print(f"\n🎧 Interactive eval — profile: {prof['name']}   model: {model}")
+    print(f"\n🎧 Interactive eval — profile: {prof['name']}   model: {model}   agent: {agent.tag}")
     print(f"   Spotify: {'on' if verifier else 'off'}\n")
 
     try:
-        outcome = pipeline.run(
+        outcome = agent.run(
             prof["reviews"], make_llm(model, base_url),
             verifier=verifier, temperature=temperature,
+            extra_options=mopts.merged(model, thinking),
         )
     except Exception as e:
         print(f"❌ Generation failed: {e!r}", file=sys.stderr)
@@ -465,7 +514,8 @@ def run_interactive(profs: list[dict], model: str, base_url: str,
             note = ""
         golden_mod.append_label(
             profile=prof["name"], artist=r.artist, album=r.album,
-            label=lab, model=model, note=note, reason=(r.reason or "").strip(),
+            label=lab, model=model, agent=agent.tag,
+            note=note, reason=(r.reason or "").strip(),
         )
         labels.append((r.artist, lab))
         print(f"   → {lab}\n")
@@ -493,7 +543,7 @@ def export_recs_csv(results: list[dict], path: Path) -> int:
     """
     import csv
     path.parent.mkdir(parents=True, exist_ok=True)
-    cols = ["model", "profile", "artist", "album", "round", "confidence",
+    cols = ["model", "agent", "profile", "artist", "album", "round", "confidence",
             "verified", "spotify_url", "canonical_album", "golden", "reason"]
     rows = 0
     with path.open("w", newline="", encoding="utf-8") as f:
@@ -518,7 +568,7 @@ def export_recs_csv(results: list[dict], path: Path) -> int:
                     al = golden_mod._normalize(rec.get("album", ""))
                     g = verdicts.get((a, al), "")
                     w.writerow([
-                        model, pname,
+                        model, r.get("agent", ""), pname,
                         rec.get("artist", ""), rec.get("album", ""),
                         rec.get("round", 1), rec.get("confidence", ""),
                         "yes" if rec.get("verified") else "no",
@@ -533,10 +583,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate the recommendation engine across models/profiles.")
     parser.add_argument("--models", default=os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL") or "llama3",
                         help="Comma-separated model names (default: $LLM_MODEL or llama3)")
+    parser.add_argument("--agent", default=afrec_agents.selected_agent().tag,
+                        help="Agent version — the engine's playbook (prompts/call flow). "
+                             "Tag like 'artist-then-album@v1' or bare id 'album-first' (latest). "
+                             "Defaults to the selected agent (AFREC_AGENT in .env). See: make agents")
     parser.add_argument("--profile", help="Filter to one fixture by name or stem (repeatable).")
     parser.add_argument("--base-url", default=os.getenv("LLM_URL") or os.getenv("OLLAMA_URL") or "http://localhost:8092",
                         help="LLM server base URL (default: $LLM_URL or localhost:8092)")
     parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--no-thinking", action="store_true",
+                        help="Force thinking OFF for every model this run (overrides eval/model_options.json). "
+                             "Default: the per-model file — Qwen runs no-think automatically, other models are unaffected.")
+    parser.add_argument("--thinking", action="store_true",
+                        help="Force thinking ON for every model this run (overrides the per-model file) — "
+                             "for quality spot-checks; ~20x slower on Qwen.")
     parser.add_argument("--no-spotify", action="store_true",
                         help="Skip Spotify verification (faster, weaker ground-truth).")
     parser.add_argument("--interactive", action="store_true",
@@ -562,6 +622,12 @@ def main() -> int:
         print(f"❌ No fixtures found in {FIXTURES_DIR}", file=sys.stderr)
         return 2
 
+    try:
+        agent = afrec_agents.get_agent(args.agent)
+    except ValueError as e:
+        print(f"❌ {e}", file=sys.stderr)
+        return 2
+
     if args.interactive:
         if args.profile is None:
             print("❌ --interactive needs a --profile. Available: "
@@ -570,10 +636,12 @@ def main() -> int:
         if len(profs) > 1:
             print(f"   (multiple matched '{args.profile}'; labeling first: {profs[0]['name']})")
         return run_interactive(profs, models[0], args.base_url, args.temperature,
-                               use_spotify=not args.no_spotify)
+                               use_spotify=not args.no_spotify, agent=agent,
+                               thinking=thinking_override(args))
 
     print("\n🧪 Evaluation harness")
     print(f"   Models:    {', '.join(models)}")
+    print(f"   Agent:     {agent.tag} — {agent.summary}")
     print(f"   Profiles:  {', '.join(p['name'] for p in profs)}")
     print(f"   Base URL:  {args.base_url}")
     print(f"   Spotify:   {'off' if args.no_spotify else 'on (if creds)'}")
@@ -581,9 +649,10 @@ def main() -> int:
 
     results = []
     for model in models:
-        print(f"\n▶ Evaluating {model} ...")
+        print(f"\n▶ Evaluating {model} (agent {agent.tag}) ...")
         result = evaluate_model(model, profs, args.base_url, args.temperature,
-                                use_spotify=not args.no_spotify)
+                                use_spotify=not args.no_spotify, agent=agent,
+                                thinking=thinking_override(args))
         results.append(result)
         print(f"   {result['n_ok']}/{result['n_total']} profiles OK — avg quality {result['avg_quality']:.3f} "
               f"in {result['total_wallclock_s']}s")

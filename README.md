@@ -26,8 +26,12 @@ Currently supports **music (albums)**; other types are stubbed for the future.
 
 ```
 afrec/        THE ENGINE — the thing being measured (never imports from eval/)
-  prompts.py     ← the file you edit to tune the engine
-  pipeline.py    orchestration: artists → albums → verify → retry
+  prompts.py     ← the prompt families you edit to tune the engine
+  agent_registry.py          ← the registry mechanism: Agent type, register, lookup, selection
+  agents.py      ← the agent catalog: imports every agent module + the reference table
+  agent_artist_then_album.py  ← agent: 2-call artists→albums baseline (the default)
+  agent_album_first.py        ← agent: 1-shot direct album proposals (the A/B)
+  pipeline.py    the orchestrator/facade: shared verify+retry, dispatches to an agent
   spotify.py     hallucination check (verify artist+album against Spotify)
   llm.py         LLM client — llama.cpp llama-server (default) or Ollama, via .env
   firebase.py    auth + remote function calls (production only)
@@ -37,7 +41,8 @@ recommend.py  PRODUCTION entry point: Firebase → engine → Firebase
 
 eval/         MEASUREMENT — everything for evaluating and improving the engine
   evaluate.py    the harness → leaderboard (quality / real r1 / golden)
-  taste.py       human judge: 1–5 scoring, model duels, Elo, calibration stats
+  taste.py       human judge: 1–5 scoring, single model duels, Elo, calibration stats
+  duels.py       batched, resumable duel sessions (agent showdowns, model showdowns)
   goldenset.py   golden-set + label-corpus scoring logic
   humaneval.py   storage/stats for taste.py verdicts
   make_fixture.py  turn a real Firebase user into a test profile
@@ -61,8 +66,10 @@ evaluator, and change how we measure without touching the engine.
 1. **Python 3.10+**, then:
    ```bash
    make setup            # venv + pip install (firebase-admin, requests, python-dotenv)
-   source venv/bin/activate
    ```
+   No `activate` needed — every `make` target uses `venv/bin/python` automatically
+   (falling back to `python3` before the venv exists). If you call a script
+   directly (`python eval/taste.py ...`), use `venv/bin/python` or activate first.
 2. **`serviceAccountKey.json`** in the repo root — Firebase Console → Project
    Settings → Service Accounts → *Generate new private key*. (gitignored; never commit.)
 3. **`.env`** in the repo root (gitignored):
@@ -118,6 +125,7 @@ that's the human-judging tier below.
 | Dump every individual rec to a spreadsheet for eyeballing | `make csv PROFILE=... CSV=recs.csv` |
 | A/B a prompt change | run `eval/evaluate.py ... --output-dir out/before`, edit, re-run to `out/after`, diff the leaderboards (details: `eval/README.md`, playbook item 3) |
 | Sweep several models at once | `make eval MODELS=modelA,modelB` |
+| See which engine agent (playbook version) produced a run | `make agents` (reference table); pick one with `AGENT=album-first@v1`; `make select AGENT=…` to change what production runs |
 
 ### Human, offline — write your taste down (once, per profile)
 
@@ -141,6 +149,7 @@ judgment — pick the one matching your question:
 | Vet individual picks | **one recommendation at a time** — good / bad / unsure | `make label PROFILE=jazzy_hiphop` |
 | Grade an answer as a whole | **the entire response**, rated 1–5 — catches a great pick your golden list never mentioned | `make score PROFILE=... ROUNDS=2` |
 | Compare models head-to-head | **which of 2+ responses is better** for the same profile (shown as randomized A/B to fight position bias) | `make duel PROFILE=... MODELS=modelA,modelB` |
+| Duel a whole matrix in one sitting | **many duels at once** — e.g. every model's two playbooks against each other, or each model with its own preferred agent. Progress is saved after every duel: quit and re-run the same command to resume | `make duels DUELS='agents'` · `make duels DUELS='models --contestants a:agent@v1,b'` · `make duels DUELS='status'` |
 | Review everything you've judged so far | (automated rollup of the above — nothing to watch) | `make stats` |
 
 Every verdict appends to `eval/golden/*.jsonl` — over time this becomes your
@@ -186,6 +195,70 @@ ranked "how to improve the evaluation" playbook — is in
 
 ---
 
+## Agents — the engine's versioned playbooks
+
+There are two things you can vary, and the harness keeps them separate:
+
+- **Model** — the brain (weights). `MODELS=` / `--models`.
+- **Agent** — the playbook (prompts + call flow + retry policy). Each agent
+  lives in its own module (`afrec/agent_<id>.py`) and is registered with an
+  **`id@version` tag** (registry mechanism: `afrec/agent_registry.py`;
+  catalog: `afrec/agents.py`); `pipeline.run()` is just the
+  orchestrator/facade that dispatches to an agent and shares the
+  Spotify-verify + reflection-retry machinery between them.
+
+Two agents ship in the box:
+
+| tag | module | what it does | bet |
+|---|---|---|---|
+| `artist-then-album@v1` (default) | `agent_artist_then_album.py` | call 1: 8–10 new artists → call 2: one real album per artist | per-artist recall avoids hallucinated album/artist pairings |
+| `album-first@v1` | `agent_album_first.py` | one call: 8 complete real (artist, album) picks straight from the taste | taste lives in the *albums*; fewer calls, bolder, more specific picks |
+
+```
+make agents                       # the reference table: every agent + what it does
+make eval AGENT=album-first@v1    # run everything under a specific agent
+make select AGENT=album-first@v1  # make an agent the one production runs (writes .env)
+```
+
+**Selection:** production (`recommend.py`) and the default eval runs use the
+*selected* agent — `$AFREC_AGENT` from `.env` (set it with `make select`),
+else the registry default. Every eval command can override with `--agent`/
+`AGENT=`. An unknown `AFREC_AGENT` fails loudly instead of silently
+switching playbooks.
+
+Every scored run — automated leaderboard (MD/TSV/JSON/CSV) and human
+verdicts (`labeled.jsonl`, `scores.jsonl`, `duels.jsonl`) — records
+**both** the model *and* the agent tag, so a number always answers
+"which model, under which playbook". Duel Elo is keyed by
+`model [agent]`: when you ship a new playbook, it starts its own ladder
+instead of polluting the model's history. A bare id (`album-first`) means
+"latest version"; a full tag pins an exact version, which is what keeps
+old scores comparable. (The old `two-call@v1` tag still resolves as an alias.)
+
+**Which playbook wins? — the agent showdown.** The automated leaderboard
+can't answer that (its metrics don't see taste fit), so you judge it:
+`make duels DUELS='agents'` runs one batched, resumable session where each
+model duels *itself* — `artist-then-album` vs `album-first` — on every
+profile. You judge each duel (randomized letters, like `make duel`); the
+standings land in `taste.py stats` as separate `Model [agent]` ladders.
+`make duels DUELS='status'` shows progress; re-run the same command after
+any quit to resume.
+
+**Ship a new strategy (new agent):**
+1. Add a prompt family to `afrec/prompts.py`, then a new module
+   `afrec/agent_<id>.py` with a `run_<id>(reviews, llm, …) -> RunOutcome`
+   that reuses the shared machinery in `afrec/pipeline.py` (`_run_stage`,
+   `verify_and_retry`).
+2. `_register(...)` it at the bottom of that module — bump the version,
+   describe what changed and what you're betting on. *Never* edit a
+   published version's behavior.
+3. Compare head-to-head on the same model + profiles:
+   `make eval AGENT=artist-then-album@v1` then `make eval AGENT=<new>@v1`,
+   and diff the leaderboards. `make fast AGENT=...` for the quick loop.
+4. If it wins: `make select AGENT=<new>@v1` to put it in production.
+
+---
+
 ## How a run works
 
 ```
@@ -216,13 +289,17 @@ get_user_reviews()       local LLM                 submit_recommendation()
 | Eval: `no fixtures found` | Missing files in `eval/fixtures/` |
 | Eval: spotify "off (no creds)" | Set `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` in `.env` |
 | Eval: golden `0g/0b` everywhere | Your golden lists don't overlap what the model suggests — broaden them (`eval/README.md`, playbook item 1) |
+| Duel session quit mid-way (or you hit Ctrl-C) | Nothing is lost — re-run the exact same `duels.py` command to resume; `venv/bin/python eval/duels.py status` shows what's done |
 
 ---
 
 ## Tuning knobs
 
 - **`afrec/prompts.py`** — the prompts (artists / albums / retry). This is *the*
-  file to edit when you want to change what the engine asks for.
+  file to edit when you want to change what the engine asks for. When a change
+  is a real strategy shift, register it as a new agent version in
+  `afrec/agents.py` so scores stay attributable.
+- **`afrec/agents.py`** — the agent registry (see "Agents" above).
 - Env: `MIN_REVIEWS_TO_RUN` (default 3), `SPOTIFY_MATCH_THRESHOLD` (default 0.5),
   `GROUP_ID` (default `default-group`), plus the `.env` table above.
 - CLI: `--temperature` on the eval tools (lower = less creative, fewer hallucinations).

@@ -1,0 +1,21 @@
+{
+  "profile": "warm_groove",
+  "description": "Answer key (SMALL SEED) for the warm_groove fixture: the test is holding the range (groove, neo-soul, art-rap) without collapsing to one centroid. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed — small on purpose; judge with `evaluate.py --interactive --profile warm_groove` and promote)",
+  "annotated_at": "2026-09-21",
+  "notes": "SEED — a handful of entries to give the golden column its first teeth; every entry is inferable from the fixture's four reviews. Judge the engine with `evaluate.py --interactive --profile warm_groove` and promote the artists that keep coming up good/bad here.",
+  "good": [
+    { "artist": "Danny Brown", "tier": "expected", "pair": "craft-vs-slop",
+      "reason": "ph-1/ph-3: producer-obsessed, lyric-first hiphop with real texture — the same 'toiled over every detail' standard" },
+    { "artist": "Vince Staples", "tier": "expected",
+      "reason": "ph-1: hiphop that's also dance music; the beat-led, alive, non-generic pole" },
+    { "artist": "Smino", "tier": "novel",
+      "reason": "ph-3/ph-4: the literary/wordplay pole taken further — hiphop as a real art form, the move the profile is one step from making" }
+  ],
+  "bad": [
+    { "artist": "6ix9ine", "tier": "expected", "pair": "craft-vs-slop",
+      "reason": "the lazy 'hiphop' centroid answer: zero production craft, zero lyricism — the exact opposite of all four reviews" },
+    { "artist": "Lil Uzi Vert", "tier": "expected",
+      "reason": "genre-echo failure: hiphop-tagged, none of the texture/lyricism the profile actually rewards" }
+  ]
+}

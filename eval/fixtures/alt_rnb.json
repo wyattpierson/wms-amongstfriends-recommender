@@ -1,0 +1,32 @@
+{
+  "profile": "alt_rnb",
+  "description": "Alternative R&B core: dark, moody, sexy, vocal-forward, genre-blending R&B. Loves the artists who crossed lanes (electronic, hiphop, pop) without losing the romance. STRUCTURAL DRAFT — tweak the details.",
+  "source": "hand-written fixture",
+  "notes": "Focused single-lane profile: the test is subtlety WITHIN alt R&B (who keeps the dark/moody/sexy soul vs playlist-slop R&B-pop), plus one or two clean bridges out of the lane (The Weeknd's electronic side, Frank Ocean's experimental side). Edit freely — the golden set (eval/golden/alt_rnb.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Kissland", "metadata": { "albumName": "Kissland", "artistName": "The Weeknd" } },
+      "rating": 5,
+      "reviewId": "mr-1",
+      "text": "This is what R&B should be. Dark, cinematic, the vocals are up front but the production pulls in all these electronic and hiphop ideas and none of it feels like a genre. Every song feels like a scene. The best album of his by a mile — Before He Catches You alone is a masterpiece",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "channel orange", "metadata": { "albumName": "channel orange", "artistName": "Frank Ocean" } },
+      "rating": 5,
+      "reviewId": "mr-2",
+      "text": "Songs that still wreck me years later. Pyramids and Lost are just perfect — heartbroken, sunny, a little weird, nothing else sounds like it. It's the album I keep coming back to when I want something real instead of another pop record. Everything he's done since orbits this one",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Kaleidoscope Dream", "metadata": { "albumName": "Kaleidoscope Dream", "artistName": "Miguel" } },
+      "rating": 4,
+      "reviewId": "mr-3",
+      "text": "Adapt is still one of the best songs of this decade, period. The album is a little all-over the place but the peaks are so high — Adia, Come Through, He Art. It's romantic and a little chaotic and sounds like Miguel actually went and lived in the world instead of writing about it. Not perfect, but the best thing from that whole 2012 R&B wave for me",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

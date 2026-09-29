@@ -8,7 +8,7 @@ Flow:
 
 All the interesting logic lives in the `afrec` package:
     afrec.prompts    — prompt builders (what you tweak)
-    afrec.pipeline   — the two-call flow + verification + retry
+    afrec.pipeline   — the orchestrator: dispatches to the selected agent + shared verify/retry
     afrec.spotify    — the hallucination check
     afrec.llm        — the LLM client (llama.cpp llama-server / Ollama, swappable)
     afrec.firebase   — auth + callable functions (isolated)
@@ -24,7 +24,7 @@ import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-from afrec import firebase, pipeline, spotify
+from afrec import agents, firebase, pipeline, spotify
 from afrec.llm import make_llm, LLMConnectionError, LLMTimeoutError, LLMHTTPError, LLMError
 from afrec.reviews import parse_reviews, summary_line, ACTIVE_TYPE
 
@@ -114,9 +114,10 @@ def main():
             threshold = float(os.getenv("SPOTIFY_MATCH_THRESHOLD", "0.5"))
             verifier = spotify.verifier_for(token, threshold)
 
-    print(f"\n4. Generating recommendations with {llm.name} ...")
+    agent = agents.selected_agent()
+    print(f"\n4. Generating recommendations with {llm.name} (agent: {agent.tag}) ...")
     try:
-        outcome = pipeline.run(reviews, llm, verifier=verifier, log=print)
+        outcome = pipeline.run(reviews, llm, agent=agent, verifier=verifier, log=print)
     except LLMConnectionError as e:
         print(f"❌ {e}")
         sys.exit(1)

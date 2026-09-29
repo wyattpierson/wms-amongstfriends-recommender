@@ -86,11 +86,23 @@ def strip_code_fences(raw: str) -> str:
     return body.strip()
 
 
+def _unwrap_nested_list(v):
+    """Some models (Qwen3-style) wrap the array in an extra list: [["a","b"]].
+    Unwrap a single-element list-of-lists (up to two levels); leave everything
+    else alone so a genuinely single-item list survives."""
+    for _ in range(2):
+        if isinstance(v, list) and len(v) == 1 and isinstance(v[0], list):
+            v = v[0]
+        else:
+            break
+    return v
+
+
 def _extract_json(raw: str):
     """Parse JSON, tolerating fences and prose around the actual JSON payload."""
     cleaned = strip_code_fences(raw)
     try:
-        return json.loads(cleaned)
+        return _unwrap_nested_list(json.loads(cleaned))
     except json.JSONDecodeError:
         pass
     # Fallback: grab the outermost JSON array or object in the text
@@ -99,7 +111,7 @@ def _extract_json(raw: str):
         end = cleaned.rfind(closer)
         if start != -1 and end > start:
             try:
-                return json.loads(cleaned[start : end + 1])
+                return _unwrap_nested_list(json.loads(cleaned[start : end + 1]))
             except json.JSONDecodeError:
                 continue
     raise ValueError("could not find a valid JSON value in the response")

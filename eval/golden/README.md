@@ -12,7 +12,7 @@ eval/golden/
   ...
   labeled.jsonl                 ← auto-built by `make label` (per-rec verdicts, append-only)
   scores.jsonl                  ← auto-built by `make score` (1–5 response ratings, append-only)
-  duels.jsonl                   ← auto-built by `make duel` (rankings → Elo, append-only)
+  duels.jsonl                   ← auto-built by `make duel` / `make duels` (rankings → Elo, append-only)
 ```
 
 The profile files are the ones **you edit by hand**. The `.jsonl` corpus files

@@ -38,11 +38,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _canned_response(self, prompt: str) -> str:
-        if "suggest 8" in prompt or "NOT already listened" in prompt:
-            return ARTISTS
-        if "In your previous response" in prompt:
+        if "In your previous response" in prompt:   # retry (both agents)
             return RETRY
-        return ALBUMS
+        if "recommend exactly 8 real albums" in prompt:   # album-first one-shot
+            return ALBUMS
+        if "suggest 8" in prompt or "NOT already listened" in prompt:   # artist-then-album call 1
+            return ARTISTS
+        return ALBUMS   # artist-then-album call 2
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0))

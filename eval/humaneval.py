@@ -44,6 +44,7 @@ def append_score(
     *,
     profile: str,
     model: str,
+    agent: str = "",     # which agent version generated the response (e.g. "artist-then-album@v1")
     score: int,          # 1..5
     note: str = "",
     recs: list | None = None,
@@ -62,6 +63,7 @@ def append_score(
         "kind": "score",
         "profile": profile,
         "model": (model or "").strip(),
+        "agent": (agent or "").strip(),
         "score": score,
         "score_label": SCORE_LABELS[score],
         "note": (note or "").strip(),
@@ -95,7 +97,8 @@ def load_scores() -> list[dict]:
     return out
 
 
-def score_stats(model: str | None = None, profile: str | None = None) -> dict:
+def score_stats(model: str | None = None, profile: str | None = None,
+                agent: str | None = None) -> dict:
     """
     Aggregate response scores.
 
@@ -110,6 +113,8 @@ def score_stats(model: str | None = None, profile: str | None = None) -> dict:
         rows = [r for r in rows if r.get("model") == model]
     if profile:
         rows = [r for r in rows if r.get("profile") == profile]
+    if agent:
+        rows = [r for r in rows if (r.get("agent") or "") == agent]
     vals = [r["score"] for r in rows]
     n = len(vals)
     return {
@@ -224,6 +229,10 @@ def append_duel(
     ranking: list[str],     # model names, best → (as far as the human ordered)
     unranked: list[str] | None = None,   # models that lost (no relative order given)
     ties: list[str] | None = None,   # models the human called tied-for-winner
+    agent: str = "",        # agent used by ALL contenders (duels are same-agent);
+                            # leave "" when contenders used different agents —
+                            # the ranking entries then carry their own identity
+    agents: dict | None = None,  # per-contestant agent map {label: agent} (traceability)
     note: str = "",
     recs_by_model: dict | None = None,
     spotify_on: bool = False,
@@ -249,6 +258,8 @@ def append_duel(
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "kind": "duel",
         "profile": profile,
+        "agent": (agent or "").strip(),
+        "agents": agents or {},
         "ranking": ranking,
         "unranked": unranked or [],
         "ties": ties or [],
@@ -310,10 +321,16 @@ def elo_from_duels(k: float = 32.0, start: float = 1000.0) -> dict:
         duels_seen.setdefault(m, 0)
         ties.setdefault(m, 0)
 
+    # Duels recorded with an agent tag are keyed as "model [agent]" so a
+    # playbook change starts a fresh Elo ladder instead of polluting the
+    # model's history. Old records (no agent field) key as bare model name.
     for d in load_duels():
-        ranking = [m for m in d.get("ranking", []) if m]
-        unranked = list(d.get("unranked", []) or [])
-        tied = list(d.get("ties", []) or [])
+        ag = (d.get("agent") or "").strip()
+        def _key(m: str) -> str:
+            return f"{m} [{ag}]" if ag else m
+        ranking = [_key(m) for m in d.get("ranking", []) if m]
+        unranked = [_key(m) for m in (d.get("unranked", []) or [])]
+        tied = [_key(m) for m in (d.get("ties", []) or [])]
         models = list(dict.fromkeys(ranking + unranked + tied))
         if len(models) < 2:
             continue

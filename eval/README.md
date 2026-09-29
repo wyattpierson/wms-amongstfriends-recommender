@@ -12,28 +12,46 @@ here, and you can change how we *measure* it here without touching the engine.
 
 ```
 eval/
+  EVAL_PLAN.md           the working plan — human-eval workflow, hardware limits, model quirks (read first)
+  EVAL_CHECKLIST.md      the to-do list — every remaining command to type, in order (the "what's left")
   evaluate.py            the harness — run it to get a leaderboard (this is "the eval")
   goldenset.py           scoring + labeling logic (golden sets, interactive corpus)
-  taste.py               HUMAN JUDGE — rate a whole response 1–5, or duel models
-  humaneval.py           storage + stats for taste.py (scores.jsonl, duels.jsonl, Elo)
+  model_options.py       per-model LLM options loader (model_options.json — e.g. Qwen no-think)
+  taste.py               HUMAN JUDGE — rate a whole response 1–5, or duel models (single duel)
+  duels.py               HUMAN JUDGE, BATCHED — whole duel matrices (agent showdowns / model showdowns), resumable
+  humaneval.py           storage + stats for taste.py + duels.py (scores.jsonl, duels.jsonl, Elo)
   fixtures/<profile>.json   the INPUTS — saved user-review profiles the engine runs against
   golden/<profile>.json     the JUDGE — human good/bad picks per profile (your taste)
   golden/labeled.jsonl      the CORPUS — every live good/bad verdict you give, appended
   golden/scores.jsonl       the CORPUS — every 1–5 rating of a full response, appended
-  golden/duels.jsonl        the CORPUS — every model-duel ranking, appended
+  golden/duels.jsonl        the CORPUS — every model-duel ranking, appended (by taste.py and duels.py)
   mock_ollama_server.py    fake LLM server (mimics llama-server), so you can exercise the harness with no model
   make_fixture.py          BUILD a test case from a REAL user — fetches their Firebase reviews,
                            keeps only the music/album ones (same source recommend.py reads),
                            saves eval/fixtures/<profile>.json (+ empty golden seed); --force to re-fetch
   tests/
+    test_agents.py             agent registry + run stamping, fully offline
     test_offline.py            pipeline + harness, no Spotify, no network
     test_spotify_existence.py  proves the "does it exist on Spotify" metric is honest
     test_humaneval.py          scores/duels/Elo records, fully offline
   output/                generated (gitignored): leaderboards, TSVs, per-model JSON, CSVs
+  output/duel_sessions/    duel session state (resume points for duels.py — safe to delete; duels.jsonl is the record)
 ```
 
 Engine (what's being measured): see `afrec/` at the repo root. `recommend.py`
 is the production entry point. Neither imports anything from `eval/`.
+
+**Two variables, tracked separately:** the **model** (the brain) and the
+**agent** (the playbook — prompts + call flow + retry policy, one module per
+agent in `afrec/agent_*.py`, registered in `afrec/agents.py`). The two in
+the box: `artist-then-album@v1` (two-call baseline, the default) and
+`album-first@v1` (one-shot direct album picks — the A/B). Every automated
+result and human verdict records **both**, and every command takes `--agent`
+(make: `AGENT=`). Run `make agents` for the reference table.
+`make select AGENT=<tag>` changes which agent production runs. When you ship
+a new strategy, register a new agent (don't edit a published one) and compare
+tags on the same model + profiles. Duel Elo is keyed `model [agent]` so a
+playbook change gets its own ladder instead of polluting the model's history.
 
 ---
 
@@ -58,9 +76,11 @@ time. The three interactive tools ask different questions:
 
 | Tool | What *you* are deciding | Unit of judgment | Recorded in |
 |---|---|---|---|
-| `evaluate.py --interactive` | Is **this one recommendation** good or bad? | a single rec, one at a time (good / bad / unsure) | `golden/labeled.jsonl` |
+| `evaluate.py --interactive` | Is **this one recommendation** good or bad? | a single rec, one at a time (good / bad / **unsure** — mark it and go listen later) | `golden/labeled.jsonl` (model **and agent** tagged) |
+| `taste.py pending` | The **to-listen queue**: the unsure recs you can't judge without hearing them | list the queue, then `--judge` to append final verdicts after you've listened | `golden/labeled.jsonl` (`unknown` rows don't count in stats until resolved) |
 | `taste.py score` | How good was **the whole response**? | the full set of recs, rated 1–5 | `golden/scores.jsonl` |
-| `taste.py duel` | **Which of 2+ responses is better?** | relative, model vs. model (randomized A/B/C) | `golden/duels.jsonl` → win-rates, Elo |
+| `taste.py duel` | **Which of 2+ responses is better?** | relative, one duel at a time (randomized A/B/C) | `golden/duels.jsonl` → win-rates, Elo |
+| `duels.py agents` / `duels.py models` | The same judgment, **batched into a resumable session**: e.g. every model's two playbooks vs each other, or each model with its own preferred agent | many duels in one command; progress saved after each duel | `golden/duels.jsonl` + `output/duel_sessions/` (resume state) |
 
 Why three live tools? Different units of judgment answer different questions:
 **label** has the finest granularity — it finds the specific rec that missed and
@@ -127,6 +147,12 @@ python eval/taste.py score --profile jazzy_hiphop --models my-model --rounds 2
 # (e.g. two llama-servers on different ports via separate runs, or Ollama names):
 python eval/taste.py duel --profile wyatt --models modelA,modelB
 
+# Duel a WHOLE MATRIX in one resumable session (duels.py):
+python eval/duels.py agents                # agent showdown: each model vs its own other playbook, all profiles
+python eval/duels.py models --contestants modelA:album-first@v1,modelB --profiles wyatt,jazzy_hiphop
+python eval/duels.py status                # progress across all sessions
+# Quit anytime (q / Ctrl-C); re-run the same command to pick up where you left off.
+
 # Where do things stand (avg 1–5 scores, duel win-rates, Elo)?
 python eval/taste.py stats
 ```
@@ -146,6 +172,7 @@ python eval/evaluate.py --interactive --profile alex
 Run the offline tests any time (no network, no LLM server):
 
 ```bash
+python eval/tests/test_agents.py
 python eval/tests/test_offline.py
 python eval/tests/test_spotify_existence.py
 python eval/tests/test_humaneval.py
@@ -189,6 +216,21 @@ The existence term is where the interesting truth is — see below.
   not by `verified_share`.
 - Verified against the **real** `api.spotify.com` (not a name-guess). A made-up album
   returns "not found"; a real one returns a direct link.
+- **`⚠️ UNTRUSTED` cutoff** — if a model/agent's avg `real r1` is ≤25% (i.e. ≥75% of its
+  round-1 recs don't exist on Spotify), the leaderboard flags it **UNTRUSTED** (on the model
+  row, the per-profile status, and an `untrusted` column in the TSV). That pairing is
+  untrustworthy and is *not worth human eval time* — this is the automated first-pass
+  gate before you spend listening sessions on a model. Threshold: `UNTRUSTED_REAL_R1_MAX`
+  at the top of `evaluate.py`.
+- **Thinking models (Qwen3-style)** emit a `reasoning_content` field alongside `content`.
+  At temp 0.7 they sometimes bury the whole answer in their reasoning and finish with an
+  **empty** `content` — the stage parses nothing and the run scores 0 recs. The harness now
+  (1) retries a parse failure once and (2) unwraps double-nested arrays. Thinking is handled
+  **per model** via `model_options.json` (e.g. Qwen3.8-27B-Q8_0 → `enable_thinking: false`),
+  merged into every generate call by both `evaluate.py` and `taste.py` — ~20× faster on Qwen
+  with the same quality, and a no-op for the other models in the pool. Override per run with
+  `--thinking` (spot-check) or `--no-thinking` (force off). Full story: `EVAL_PLAN.md` →
+  "Known model quirks".
 
 **Reading a row:**
 ```
@@ -248,12 +290,31 @@ Two complementary human-judgment tools:
   3 neutral · 4 good · 5 great). This is the anti-golden-set-bias signal:
   a model can surface a great answer nobody planned for, and it still counts as
   a 5. Use `--rounds N` to sample N independent generations and rate each —
-  this also tells you how *consistent* a model is.
+  this also tells you how *consistent* a model is. Each verdict records which
+  **agent** generated the response, so `taste.py stats` splits scores by
+  `model [agent]`.
 - **`taste.py duel`** — two or more models answer the same profile; responses
   are shown as **randomized letters** (A/B/C) to fight position bias; you pick
   the best (and optionally rank the rest). Every ranking feeds a running
   win-rate + **Elo** table (`taste.py stats`), so over time you get a
   no-metrics-needed "which model do I actually prefer" leaderboard.
+- **`duels.py` — the batched, resumable version of duel.** For matrix
+  comparisons ("all 4 mediums × 3 profiles, each agent against the other" is
+  12 duels — no one wants to type 12 commands), `duels.py agents` / `duels.py models`
+  build the whole queue, run it in one terminal session, and save progress
+  after every duel: quit with `q` or Ctrl-C, re-run the same command later,
+  and it resumes. Contestants are labeled `Model [agent]` for agent duels, so
+  the two playbooks get separate Elo ladders per model; `duels.py status`
+  shows where every session stands. One model is loaded at a time (agent
+  duels), so it respects the one-big-model hardware limit — it even warns
+  before a model duel that would load two big models.
+- - **Async judging (the listening queue)** — you don't have to know every answer
+  on the spot. In `--interactive`, press **u** on a rec you'd have to *hear* to judge
+  (it's recorded as `unknown`, which `taste.py stats` ignores). Later, queue those in
+  Spotify (`python eval/taste.py pending` lists them, deduped, with the artist/album
+  and your note), listen whenever, then `python eval/taste.py pending --judge` walks
+  the queue and appends your final good/bad verdicts. `stats` shows the pending count
+  so you never lose track of what's still owed.
 - **Confidence calibration** — free by-product of scoring: each rated response
   also recorded the model's self-claimed confidence per rec, so
   `taste.py stats` reports bias (claims vs your 1–5 average), a correlation
@@ -274,7 +335,10 @@ These corpora are your real taste signal (vs. the generic leaderboard proxy)
 fine-tuning / DPO-style preference training.
 
 ### 3. A/B the engine while you change it
-Hold the model fixed, edit `afrec/prompts.py` (or `afrec/pipeline.py`), re-run:
+Two ways to hold everything else fixed:
+
+**Quick loop (still designing the change):** hold the model fixed, edit
+`afrec/prompts.py` (or `afrec/pipeline.py`), re-run:
 ```bash
 # before edit
 python eval/evaluate.py --profile jazzy_hiphop --no-spotify --output-dir out/before
@@ -285,6 +349,20 @@ diff out/before/leaderboard_*.md out/after/leaderboard_*.md
 ```
 `--no-spotify` makes each run ~seconds so you can iterate fast; drop the flag on the
 final comparison to see real existence rates.
+
+**Keep the version (the change is a real strategy shift):** ship it as a new
+agent (new module + `_register(...)`, see `afrec/agent_album_first.py` as
+the template) and compare by tag — the leaderboards, TSVs and human corpora
+all record which agent produced each number, so results from different
+playbooks never silently mix. The two built-ins make the first comparison:
+```bash
+python eval/evaluate.py --models llama3 --agent artist-then-album --output-dir out/ata
+python eval/evaluate.py --models llama3 --agent album-first --output-dir out/af
+```
+For the *taste* side of the playbook question (the automated columns can't
+see it), run the agent showdown: `python eval/duels.py agents` — each model
+duels its own other playbook on every profile, batched and resumable,
+standings in `taste.py stats` as `Model [agent]` ladders.
 
 ### 4. Add a model to the sweep
 `--models a,b,c` — any names (with llama-server they're just labels; with Ollama
@@ -331,6 +409,8 @@ you can diff exactly what changed between two runs.
 ---
 
 ## How to verify it's all wired up
+- `python eval/tests/test_agents.py` — agent registry, tag resolution, and that
+  every run is stamped with its agent version. Fully offline.
 - `python eval/tests/test_offline.py` — no-spotify and (fake-verify) spotify paths +
   leaderboard render. Uses `FakeLLM`, so it's deterministic and offline.
 - `python eval/tests/test_spotify_existence.py` — proves the existence metric isn't

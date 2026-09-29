@@ -3,31 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AmongstFriends — taste eval</title>
-<link rel="stylesheet" href="style.css">
+<title>Wyatt's AI Music Eval</title>
+<link rel="stylesheet" href="style.css?v=20260929212742">
 </head>
 <body>
 <header>
-  <h1>🎧 AmongstFriends</h1>
-  <p class="sub">human-judged model evaluations · generated <span id="generated"></span> · <a href="index.html">local data, static site</a></p>
+  <h1>🎧 Wyatt's AI Music Eval</h1>
+  <p class="sub">human-judged model evaluations · generated <span id="generated"></span> · <a href="https://github.com/wyattpierson/wms-amongstfriends-recommender/tree/main/eval" target="_blank" rel="noopener">how this is generated (eval/)</a></p>
   <nav id="tabs">
     <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="runs">Runs (automated)</button>
     <button data-tab="scores">Scores (1–5)</button>
     <button data-tab="duels">Duels &amp; Elo</button>
     <button data-tab="labels">Labels</button>
     <button data-tab="golden">Golden sets</button>
     <button data-tab="leaderboards">Leaderboards</button>
+    <button data-tab="about">Models &amp; agents</button>
   </nav>
 </header>
 <main>
   <section id="tab-dashboard" class="tab active"></section>
+  <section id="tab-runs" class="tab"></section>
   <section id="tab-scores" class="tab"></section>
   <section id="tab-duels" class="tab"></section>
   <section id="tab-labels" class="tab"></section>
   <section id="tab-golden" class="tab"></section>
   <section id="tab-leaderboards" class="tab"></section>
+  <section id="tab-about" class="tab"></section>
 </main>
-<script src="data.js"></script>
-<script src="app.js"></script>
+<script src="data.js?v=20260929212742"></script>
+<script src="app.js?v=20260929212742"></script>
 </body>
 </html>

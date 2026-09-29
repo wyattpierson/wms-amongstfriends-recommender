@@ -4,10 +4,15 @@ This is the module you edit when experimenting with "changes to the engine".
 The evaluator (eval/evaluate.py) calls these through the same code path production
 uses, so anything you change here is exactly what gets measured.
 
-Two-call design (avoids hallucinated cross-artist album combinations):
-  Call 1  — build_prompt_artists : taste profile → 8–10 new artists
-  Call 2  — build_prompt_albums  : per-artist → one real album each
-  Retry   — build_retry_prompt   : replace Spotify-unverifiable albums
+Prompt families, one per agent strategy (see afrec/agents.py):
+
+  artist-then-album (two-call; avoids hallucinated cross-artist combos):
+    Call 1  — build_prompt_artists : taste profile → 8–10 new artists
+    Call 2  — build_prompt_albums  : per-artist → one real album each
+    Retry   — build_retry_prompt   : replace Spotify-unverifiable albums
+  album-first (one-shot):
+    Call 1  — build_prompt_albums_first : taste profile → 8 real albums directly
+    Retry   — build_retry_prompt   : (shared) replace Spotify-unverifiable albums
 """
 
 from __future__ import annotations
@@ -107,6 +112,51 @@ Respond ONLY with a valid JSON array with exactly one entry per artist. No markd
   {{
     "artist": "Artist Name",
     "album": "Real Album Title",
+    "confidence": 0.88,
+    "reason": "Friend-style reason tied to their taste."
+  }}
+]"""
+
+
+# ── album-first agent: one-shot direct album proposal ─────────────────────────
+
+def build_prompt_albums_first(reviews: list[dict], n: int = 8) -> str:
+    """
+    One-shot prompt for the `album-first` agent: ask for complete, specific,
+    real albums directly — no artist-list detour.
+
+    Hypothesis being A/B'd against artist-then-album: taste is expressed *in
+    albums* (the reviews are album reviews), so proposing the record up front
+    lets the model reason from the specific records the person rated — moods,
+    eras, production — instead of detouring through an artist list it must
+    then recall. Fewer calls, and room for bolder, more specific picks.
+    Failure mode to watch: higher first-pass hallucination (no "this artist is
+    definitely real" anchor) — exactly what the `real r1` metric measures.
+    """
+    review_block, reviewed_artists, reviewed_albums = _format_reviews_for_prompt(reviews)
+
+    return f"""You are a music recommendation engine for a social app called AmongstFriends.
+
+Based on this user's album ratings, recommend exactly {n} real albums they have NOT already listened to, in ONE single list.
+
+User's ratings:
+{review_block}
+
+Rules:
+- Each entry is a SPECIFIC album (artist + exact album title) that genuinely exists and is well-known enough to be found on Spotify. If you are not certain an album with that exact title exists, choose one you ARE certain about.
+- Do not suggest artists the user has already reviewed. Never-suggest artists: {reviewed_artists}
+- Never include albums already reviewed: {reviewed_albums}
+- Reason from the taste in the ratings — moods, eras, production choices, lyrical themes — not just the surface genre. Weight by RATINGS: a 5-star obscure artist should matter more than a 3-star famous one.
+- Mix it: some safe-but-great follow-ups, plus a few bold-but-adjacent picks (a neighboring scene, a shared producer, a cross-genre bridge) this person is likely to love but has probably never heard.
+- Vary the eras and sub-genres — do not give {n} albums that all sound the same.
+- Keep the reason to one or two sentences, written like a friend's tip.
+- Confidence reflects how certain you are the album is real AND that it fits their taste (0.0–1.0).
+
+Respond ONLY with a valid JSON array of exactly {n} objects. No markdown, no preamble.
+[
+  {{
+    "artist": "Artist Name",
+    "album": "Exact Real Album Title",
     "confidence": 0.88,
     "reason": "Friend-style reason tied to their taste."
   }}

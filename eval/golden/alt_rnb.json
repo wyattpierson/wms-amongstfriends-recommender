@@ -1,0 +1,21 @@
+{
+  "profile": "alt_rnb",
+  "description": "Answer key (SMALL SEED) for the alt_rnb fixture: what's a good rec for THIS listener vs a lazy R&B echo. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed — small on purpose; judge with `evaluate.py --interactive --profile alt_rnb` and promote)",
+  "annotated_at": "2026-09-21",
+  "notes": "SEED — a handful of entries to give the golden column its first teeth; every entry is inferable from the fixture's three reviews. Judge the engine with `evaluate.py --interactive --profile alt_rnb` and promote the artists that keep coming up good/bad here.",
+  "good": [
+    { "artist": "SZA", "tier": "expected",
+      "reason": "mr-1/mr-2/mr-3: modern R&B that blends electronic/hiphop while keeping the vocal up front — her lane is the same lane, a step past it" },
+    { "artist": "Daniel Caesar", "tier": "expected",
+      "reason": "mr-2: romantic, vocal-forward, a little weird; the channel-orange orbit" },
+    { "artist": "Sault", "tier": "novel",
+      "reason": "mr-2: the cleanest out-of-lane move — Frank Ocean's own project; anyone who loves channel orange this hard should get this" }
+  ],
+  "bad": [
+    { "artist": "Tory Lanez", "tier": "expected", "pair": "soul-vs-slop",
+      "reason": "in-genre R&B but the playlist-slop pole: auto-tuned, hook-first, none of the genre-blending soul the reviews describe" },
+    { "artist": "Ariana Grande", "tier": "expected",
+      "reason": "R&B-pop crossover; a lazy 'pop vocal' read of the profile — the reviews are about R&B that borrows from other genres, not pop that borrows an ad-lib" }
+  ]
+}

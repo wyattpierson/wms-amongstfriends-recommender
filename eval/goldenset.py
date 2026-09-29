@@ -230,6 +230,7 @@ def append_label(
     album: str = "",
     label: str,                 # "good" | "bad" | "unknown"
     model: str = "",
+    agent: str = "",            # engine playbook that generated the rec (e.g. "artist-then-album@v1")
     note: str = "",
     reason: str = "",
     source: str = "interactive",
@@ -248,6 +249,7 @@ def append_label(
         "album": (album or "").strip(),
         "label": label,
         "model": (model or "").strip(),
+        "agent": (agent or "").strip(),
         "note": (note or "").strip(),
         "reason": (reason or "").strip(),
         "source": source,
@@ -272,18 +274,21 @@ def load_labeled() -> list[dict]:
     return out
 
 
-def labeled_stats(model: str | None = None, profile: str | None = None) -> dict:
+def labeled_stats(model: str | None = None, profile: str | None = None,
+                  agent: str | None = None) -> dict:
     """
     Aggregate the interactive corpus.
 
     good_rate = good / (good + bad) over DECISIVE labels (ignores "unknown").
-    When model/profile are given, restrict to those; otherwise all.
+    When model/profile/agent are given, restrict to those; otherwise all.
     """
     rows = load_labeled()
     if model:
         rows = [r for r in rows if (r.get("model") or "") == model]
     if profile:
         rows = [r for r in rows if (r.get("profile") or "") == profile]
+    if agent:
+        rows = [r for r in rows if (r.get("agent") or "") == agent]
 
     good = sum(1 for r in rows if r.get("label") == "good")
     bad = sum(1 for r in rows if r.get("label") == "bad")
