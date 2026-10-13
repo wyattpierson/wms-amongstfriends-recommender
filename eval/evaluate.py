@@ -54,7 +54,7 @@ UNTRUSTED_REAL_R1_MAX = 0.25
 
 
 def thinking_override(args) -> bool | None:
-    """CLI override for per-model thinking (eval/model_options.json).
+    """CLI override for per-model thinking (afrec/model_options.json).
 
     None = use the per-model file; True/False = force on/off for this run.
     """
@@ -87,8 +87,7 @@ except Exception:
     _tiny_load_dotenv(REPO_ROOT / ".env")
 
 import goldenset as golden_mod                     # eval/goldenset.py (same directory)
-import model_options as mopts                      # eval/model_options.py (per-model LLM options)
-from afrec import pipeline, spotify               # the engine (repo root)
+from afrec import pipeline, spotify, model_options as mopts   # the engine (repo root) + per-model LLM options
 from afrec import agents as afrec_agents          # the versioned playbooks the engine runs as
 from afrec.llm import make_llm, LLMError, LLMConnectionError, LLMTimeoutError, LLMHTTPError
 from afrec.reviews import parse_reviews
@@ -166,6 +165,32 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
         m["golden_novel_hits"] = None
         m["golden_novel_total"] = None
 
+    # Structure (response-level: genre/era spread vs the fixture's own
+    # composition) + justification keyword hits. Kept OUT of golden/quality —
+    # a separate yardstick, see eval/golden/README.md.
+    m["structure_points"] = None
+    m["structure_total"] = None
+    m["structure_score"] = None
+    m["lane_share"] = None
+    m["lane_balance"] = None
+    m["tag_coverage"] = None
+    m["just_hits"] = None
+    m["just_total"] = None
+    m["just_fixture_hits"] = None
+    if gset is not None and (gset.get("constraints") or gset.get("justification_keywords")):
+        fixture_names = [rv.get("artist", "") for rv in profile.get("reviews", [])]
+        fixture_names += [rv.get("album", "") for rv in profile.get("reviews", [])]
+        st = golden_mod.score_response_structure(recs, gset, fixture_names)
+        m["structure_points"] = st["points"] if st["total"] else None
+        m["structure_total"] = st["total"] if st["total"] else None
+        m["structure_score"] = st["score"]
+        m["lane_share"] = st["lane_share"]
+        m["lane_balance"] = st["lane_balance"]
+        m["tag_coverage"] = st["tag_coverage"]
+        m["just_hits"] = st["just_hits"]
+        m["just_total"] = st["just_total"]
+        m["just_fixture_hits"] = st["just_fixture_hits"]
+
     if not outcome.ok:
         m["quality"] = 0.0
         m["notes"] = "engine returned no usable recs"
@@ -173,6 +198,14 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
 
     m["verified"] = sum(1 for r in recs if r.verified)
     m["unverified"] = sum(1 for r in recs if not r.verified)
+    # The catalog verifier died mid-run (e.g. Spotify 429): the recs are
+    # unverified passthroughs, NOT measured misses. Score them like a
+    # no-verifier run and flag the row, instead of recording a fake 0.
+    m["verification_error"] = outcome.verification_error
+    # Enrichment latched mid-run (Musicae/Spotify hop failure): facts went
+    # cache-only. The run is LESS informed, never failed — flag the row the
+    # same way verification errors are flagged, without touching the score.
+    m["enrichment_error"] = outcome.enrichment_error
 
     # ── Existence on Spotify (validity) ────────────────────────────────
     # The pipeline RETRIES non-existent albums, so the final recs are all real
@@ -181,7 +214,9 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
     #   raw_existence_rate = round1_found / total_candidates
     # i.e. what fraction of the albums the model *produced* actually exist in
     # Spotify. Retry then rescues the misses; we report both.
-    if spotify_ons:
+    # NOT measured when the verifier died mid-run (verification_error) — the
+    # "found" flags on that run are passthroughs, not Spotify confirmations.
+    if spotify_ons and not outcome.verification_error:
         total_c = outcome.total_candidates or 0
         m["raw_candidates"] = total_c
         m["round1_found"] = outcome.round1_found
@@ -196,7 +231,7 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
         m["round1_missing"] = 0
         m["retry_rescued"] = 0
         m["retry_dropped"] = 0
-        m["raw_existence_rate"] = None      # not measured (no verifier)
+        m["raw_existence_rate"] = None      # not measured (no verifier, or verifier died)
         m["final_existence_rate"] = None
 
     # Coverage: how many of the call-1 artists got a real album attached.
@@ -218,7 +253,7 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
     conf = [r.confidence for r in recs] or [0.0]
     m["avg_confidence"] = round(sum(conf) / len(conf), 3)
 
-    if spotify_ons and m["n_recs"]:
+    if spotify_ons and not outcome.verification_error and m["n_recs"]:
         verified_share = m["verified"] / m["n_recs"]
         m["verified_share"] = round(verified_share, 3)
         # Validity = the round-1 existence rate (pre-retry), NOT the post-retry
@@ -253,9 +288,12 @@ def evaluate_model(
     use_spotify: bool,
     agent: "afrec_agents.Agent",
     thinking: bool | None = None,
+    enricher=None,
 ) -> dict:
-    # Per-model extra options (eval/model_options.json), with the CLI
-    # thinking override applied. See model_options.py for the rationale.
+    # Per-model extra options (afrec/model_options.json), with the CLI
+    # thinking override applied. LlamaCPPLM also merges the table itself;
+    # passing it here explicitly lets the --thinking/--no-thinking override
+    # win. See afrec/model_options.py for the rationale.
     extra_options = mopts.merged(model, thinking)
     llm = make_llm(model, base_url=base_url)
     spotify_token: str | None = None
@@ -270,7 +308,7 @@ def evaluate_model(
         t0 = time.time()
         try:
             outcome = agent.run(prof["reviews"], llm, verifier=verifier,
-                                extra_options=extra_options)
+                                extra_options=extra_options, enricher=enricher)
             metrics = score_outcome(prof, outcome, bool(verifier))
             status = "ok"
             err = None
@@ -316,6 +354,11 @@ def evaluate_model(
         "n_ok": sum(1 for p in per_profile.values() if p["metrics"].get("ok")),
         "n_total": len(per_profile),
         "total_wallclock_s": round(sum(p["metrics"].get("wallclock_s", 0) for p in per_profile.values()), 2),
+        # Cohort label for the runs history: facts = an enricher was offered
+        # (agents without a catalog_facts param simply don't use it),
+        # years = bare Spotify year lookups only (v1.1 style), None = no
+        # catalog anchoring at all (no verifier, no enricher).
+        "enriched": "facts" if enricher is not None else ("years" if verifier is not None else None),
         "per_profile": per_profile,
     }
 
@@ -350,6 +393,25 @@ def avg_real(model_result: dict) -> float | None:
     return round(sum(vals) / len(vals), 3) if vals else None
 
 
+def avg_structure(model_result: dict) -> float | None:
+    """Average weighted structure (constraint) score across the model's profiles."""
+    vals = [b["metrics"].get("structure_score") for b in model_result["per_profile"].values()
+            if b["metrics"].get("structure_score") is not None]
+    return round(sum(vals) / len(vals), 3) if vals else None
+
+
+def _role_mix(block: dict) -> str:
+    """core/adjacent/stretch counts of a profile's recs — the pool-map plan's
+    fingerprint. Shows whether the coherence rule constrained a coherent pool
+    (stretch→0) or let a diverse pool explore (stretch>0). '—' for agents whose
+    recs carry no roles (artist-then-album, album-first, pool-map@v1)."""
+    recs = (block.get("outcome") or {}).get("recs") or []
+    c = sum(1 for r in recs if r.get("role") == "core")
+    a = sum(1 for r in recs if r.get("role") == "adjacent")
+    s = sum(1 for r in recs if r.get("role") == "stretch")
+    return f"{c}/{a}/{s}" if (c + a + s) else "—"
+
+
 def render_leaderboard(results: list[dict], args) -> str:
     rows = sorted(results, key=lambda r: (r["avg_quality"], r["n_ok"]), reverse=True)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -357,11 +419,19 @@ def render_leaderboard(results: list[dict], args) -> str:
     lines = []
     lines.append(f"# AmongstFriends engine leaderboard — {now}\n")
     agent_txt = rows[0].get("agent", "?") if rows else "?"
+    sp = 'on' if any(r['spotify'] for r in rows) else 'off'
+    if any((b.get('metrics') or {}).get('verification_error')
+           for r in rows for b in r['per_profile'].values()):
+        sp += ' ⚠️ (catalog API errors — some runs unverified, real r1 not measured)'
+    enriched = 'off' if all(r.get('enriched') is None for r in rows) else (rows[0].get('enriched') or '?')
+    if any((b.get('metrics') or {}).get('enrichment_error')
+           for r in rows for b in r['per_profile'].values()):
+        enriched += ' ⚠️ (enrichment latched — some runs cache-only facts)'
     lines.append(f"Agent: `{agent_txt}`   "
-                 f"Base URL: `{args.base_url}`   Spotify: {'on' if any(r['spotify'] for r in rows) else 'off'}   "
+                 f"Base URL: `{args.base_url}`   Spotify: {sp}   Enriched: {enriched}   "
                  f"temperature: {args.temperature}   profiles: {len(rows[0]['per_profile']) if rows else 0}\n")
-    lines.append("| rank | model | agent | avg quality | avg real (r1, Spotify) | avg golden (humans) | pairs | novel | ok/total | avg wallclock (s) |")
-    lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| rank | model | agent | avg quality | avg real (r1, Spotify) | avg golden (humans) | pairs | novel | structure | ok/total | avg wallclock (s) |")
+    lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     untrusted: list[str] = []
     for i, r in enumerate(rows, 1):
         ggs = avg_golden(r)
@@ -375,8 +445,10 @@ def render_leaderboard(results: list[dict], args) -> str:
         ptxt = f"{aps:+.2f}" if aps is not None else "n/a"
         nh, nt = novel_totals(r)
         ntxt = f"{nh}/{nt}" if nt else "n/a"
+        st = avg_structure(r)
+        stxt = f"{st:.2f}" if st is not None else "n/a"
         flag = " ⚠️ UNTRUSTED" if untr else ""
-        lines.append(f"| {i} | {r['model']}{flag} | {r.get('agent', '?')} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {ptxt} | {ntxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
+        lines.append(f"| {i} | {r['model']}{flag} | {r.get('agent', '?')} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {ptxt} | {ntxt} | {stxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
     if untrusted:
         lines.append("")
         lines.append(f"> ⚠️ **UNTRUSTED** — avg real r1 ≤ {UNTRUSTED_REAL_R1_MAX:.0%} (≥75% of round-1 recs "
@@ -386,8 +458,8 @@ def render_leaderboard(results: list[dict], args) -> str:
     # Per-profile detail for each model
     for r in rows:
         lines.append(f"\n## {r['model']}\n")
-        lines.append("| profile | ok | recs | new artists | real r1 | rescued | golden g/b | golden | pairs | novel | avg conf | quality | status |")
-        lines.append("|---|---|---|---|---:|---:|---|---:|---:|---:|---:|---:|---|")
+        lines.append("| profile | ok | recs | new artists | role mix (c/a/s) | real r1 | rescued | golden g/b | golden | pairs | novel | structure | just | avg conf | quality | status |")
+        lines.append("|---|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|---|")
         for name, block in r["per_profile"].items():
             m = block["metrics"]
             if m.get("golden_score") is None:
@@ -403,24 +475,100 @@ def render_leaderboard(results: list[dict], args) -> str:
             else:
                 r1col = f"{m['round1_found'] or 0}/{m['raw_candidates'] or 0} ({m['raw_existence_rate']:.0%})"
                 resc = str(m.get("retry_rescued", 0))
+            if m.get("structure_total"):
+                scol = f"{m['structure_points']:g}/{m['structure_total']:g}"
+                if m.get("tag_coverage") is not None and m["tag_coverage"] < 0.6:
+                    scol += f" ({m['tag_coverage']:.0%} tagged ⚠️)"
+            else:
+                scol = "—"
+            jcol = f"{m['just_hits']}/{m['just_total']}" if m.get("just_total") else "—"
             status = m.get("status") or ""
             if m.get("raw_existence_rate") is not None and m["raw_existence_rate"] <= UNTRUSTED_REAL_R1_MAX:
                 status = (status + " ⚠️untrusted").strip()
+            if m.get("verification_error"):
+                status = (status + " ⚠️spotify").strip()
+            rolecol = _role_mix(block)
             lines.append(
-                f"| {name} | {'✅' if m.get('ok') else '❌'} | {m['n_recs']} | {m['n_new_artists']} "
-                f"| {r1col} | {resc} | {ggb} | {gcol} | {pcol} | {ncol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
+                f"| {name} | {'✅' if m.get('ok') else '❌'} | {m['n_recs']} | {m['n_new_artists']} | {rolecol} "
+                f"| {r1col} | {resc} | {ggb} | {gcol} | {pcol} | {ncol} | {scol} | {jcol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
             )
+
+        # Recs with the model's self-reported genre/era — display only (never
+        # scored on); this is how untagged recs stay legible. Year is Spotify's
+        # release_date when available.
+        for name, block in r["per_profile"].items():
+            recs = (block.get("outcome") or {}).get("recs") or []
+            if not recs:
+                continue
+            lines.append(f"\n**{name} — recs** (genre/era = the model's own read, not scored on)")
+            for rec in recs:
+                bits = []
+                if rec.get("self_genre"):
+                    bits.append(rec["self_genre"])
+                if rec.get("self_era"):
+                    bits.append(rec["self_era"])
+                if rec.get("release_year"):
+                    bits.append(str(rec["release_year"]))
+                title = rec.get("canonical_album") or rec.get("album", "")
+                tag = f" *( {' · '.join(bits)} )" if bits else ""
+                role = rec.get("role")
+                lines.append(f"- {('**' + role + '** ') if role else ''}{rec.get('artist','?')} — {title}{tag}")
     return "\n".join(lines)
+
+
+def append_run_history(results: list[dict], out_dir: Path, ts: str) -> int:
+    """
+    Append one line per (model × profile) run to eval/output/runs_history.jsonl.
+
+    The per_<model>.json files are OVERWRITTEN each run; this append-only file
+    is the cross-run memory. It is the input to the tag-harvest step
+    (eval/harvest.py): which artists keep coming back, from which models, with
+    which self-reported genre/era — the consensus that becomes human-reviewed
+    tag proposals. Self-reported genre/era is display/harvest fuel only; it is
+    never scored on.
+    """
+    path = out_dir / "runs_history.jsonl"
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    n = 0
+    with path.open("a", encoding="utf-8") as f:
+        for r in results:
+            for name, block in r["per_profile"].items():
+                outcome = block.get("outcome") or {}
+                recs = [
+                    {
+                        "artist": rec.get("artist"),
+                        "album": rec.get("album"),
+                        "self_genre": rec.get("self_genre"),
+                        "self_era": rec.get("self_era"),
+                        "release_year": rec.get("release_year"),
+                        "confidence": rec.get("confidence"),
+                        "verified": rec.get("verified"),
+                        "round": rec.get("round"),
+                    }
+                    for rec in (outcome.get("recs") or [])
+                ]
+                f.write(json.dumps({
+                    "ts": now, "run": ts, "model": r["model"], "agent": r.get("agent", ""),
+                    "profile": name, "status": (block.get("metrics") or {}).get("status"),
+                    "verification_error": (block.get("metrics") or {}).get("verification_error"),
+                    "enriched": r.get("enriched"),
+                    "recs": recs,
+                }, ensure_ascii=False) + "\n")
+                n += 1
+    return n
 
 
 def write_tsv(results: list[dict], path: Path) -> None:
     import csv
-    cols = ["model", "agent", "profile", "status", "ok", "n_recs", "n_new_artists",
+    cols = ["model", "agent", "profile", "status", "verification_error", "enriched", "ok", "n_recs", "n_new_artists",
             "raw_candidates", "round1_found", "round1_missing", "retry_rescued",
             "raw_existence_rate", "final_existence_rate", "untrusted",
             "golden_good", "golden_bad", "golden_score",
             "golden_pair_points", "golden_pair_total", "golden_pair_score",
             "golden_novel_hits", "golden_novel_total",
+            "structure_points", "structure_total", "structure_score",
+            "lane_share", "lane_balance", "tag_coverage",
+            "just_hits", "just_total", "just_fixture_hits",
             "avg_confidence", "quality", "wallclock_s"]
     with path.open("w", newline="") as f:
         w = csv.writer(f, delimiter="\t")
@@ -429,7 +577,9 @@ def write_tsv(results: list[dict], path: Path) -> None:
             for name, block in r["per_profile"].items():
                 m = block["metrics"]
                 w.writerow([
-                    r["model"], m.get("agent", r.get("agent", "")), name, m.get("status"), int(bool(m.get("ok"))),
+                    r["model"], m.get("agent", r.get("agent", "")), name, m.get("status"), m.get("verification_error") or "",
+                    r.get("enriched") or "",
+                    int(bool(m.get("ok"))),
                     m["n_recs"], m["n_new_artists"],
                     m.get("raw_candidates", ""), m.get("round1_found", ""),
                     m.get("round1_missing", ""), m.get("retry_rescued", ""),
@@ -442,6 +592,12 @@ def write_tsv(results: list[dict], path: Path) -> None:
                     m.get("golden_pair_points", ""), m.get("golden_pair_total", ""),
                     (f"{m['golden_pair_score']:.3f}" if m.get("golden_pair_score") is not None else ""),
                     m.get("golden_novel_hits", ""), m.get("golden_novel_total", ""),
+                    m.get("structure_points", ""), m.get("structure_total", ""),
+                    (f"{m['structure_score']:.3f}" if m.get("structure_score") is not None else ""),
+                    (f"{m['lane_share']:.3f}" if m.get("lane_share") is not None else ""),
+                    (f"{m['lane_balance']:.3f}" if m.get("lane_balance") is not None else ""),
+                    (f"{m['tag_coverage']:.3f}" if m.get("tag_coverage") is not None else ""),
+                    m.get("just_hits", ""), m.get("just_total", ""), m.get("just_fixture_hits", ""),
                     m.get("avg_confidence", ""),
                     f"{m['quality']:.3f}", m.get("wallclock_s", ""),
                 ])
@@ -467,7 +623,7 @@ def _read_label() -> str:
 def run_interactive(profs: list[dict], model: str, base_url: str,
                     temperature: float, use_spotify: bool,
                     agent: "afrec_agents.Agent",
-                    thinking: bool | None = None) -> int:
+                    thinking: bool | None = None, enricher=None) -> int:
     """
     Generate recs for one profile, present them one by one, and record
     human good/bad verdicts into the cumulative labeled corpus (eval/golden/labeled.jsonl).
@@ -491,6 +647,7 @@ def run_interactive(profs: list[dict], model: str, base_url: str,
             prof["reviews"], make_llm(model, base_url),
             verifier=verifier, temperature=temperature,
             extra_options=mopts.merged(model, thinking),
+            enricher=enricher,
         )
     except Exception as e:
         print(f"❌ Generation failed: {e!r}", file=sys.stderr)
@@ -592,11 +749,17 @@ def main() -> int:
                         help="LLM server base URL (default: $LLM_URL or localhost:8092)")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--no-thinking", action="store_true",
-                        help="Force thinking OFF for every model this run (overrides eval/model_options.json). "
+                        help="Force thinking OFF for every model this run (overrides afrec/model_options.json). "
                              "Default: the per-model file — Qwen runs no-think automatically, other models are unaffected.")
     parser.add_argument("--thinking", action="store_true",
                         help="Force thinking ON for every model this run (overrides the per-model file) — "
                              "for quality spot-checks; ~20x slower on Qwen.")
+    parser.add_argument("--enrich", action="store_true",
+                        help="Offer the enrichment layer's catalog facts to agents that accept them "
+                             "(pool-map@v1.2 and later): year + tags + sound measurements in the map call, "
+                             "served from the shared cache with a per-session Musicae budget. "
+                             "Needs LASTFM_API_KEY and/or MUSICAE_API_KEY; without keys it is a no-op "
+                             "and the run is identical to the agent's un-enriched path.")
     parser.add_argument("--no-spotify", action="store_true",
                         help="Skip Spotify verification (faster, weaker ground-truth).")
     parser.add_argument("--interactive", action="store_true",
@@ -628,6 +791,17 @@ def main() -> int:
         print(f"❌ {e}", file=sys.stderr)
         return 2
 
+    # Enrichment: one Enricher for the WHOLE eval session (its Musicae budget
+    # and latch are per-session by design). None → agents run un-enriched,
+    # byte-identical to pre-enrichment behavior.
+    enricher = None
+    if args.enrich:
+        from afrec import enrich
+        enricher = enrich.Enricher(log=lambda s: print(f"   {s}", file=sys.stderr))
+        if not enricher.available:
+            print("   ⚠️  --enrich but no enrichment keys (LASTFM_API_KEY / MUSICAE_API_KEY) — "
+                  "facts unavailable; agents run their un-enriched path", file=sys.stderr)
+
     if args.interactive:
         if args.profile is None:
             print("❌ --interactive needs a --profile. Available: "
@@ -637,7 +811,7 @@ def main() -> int:
             print(f"   (multiple matched '{args.profile}'; labeling first: {profs[0]['name']})")
         return run_interactive(profs, models[0], args.base_url, args.temperature,
                                use_spotify=not args.no_spotify, agent=agent,
-                               thinking=thinking_override(args))
+                               thinking=thinking_override(args), enricher=enricher)
 
     print("\n🧪 Evaluation harness")
     print(f"   Models:    {', '.join(models)}")
@@ -645,6 +819,8 @@ def main() -> int:
     print(f"   Profiles:  {', '.join(p['name'] for p in profs)}")
     print(f"   Base URL:  {args.base_url}")
     print(f"   Spotify:   {'off' if args.no_spotify else 'on (if creds)'}")
+    if args.enrich:
+        print(f"   Enriched:  {'on' if (enricher and enricher.available) else 'off (no keys)'}")
     print("─" * 50)
 
     results = []
@@ -652,7 +828,7 @@ def main() -> int:
         print(f"\n▶ Evaluating {model} (agent {agent.tag}) ...")
         result = evaluate_model(model, profs, args.base_url, args.temperature,
                                 use_spotify=not args.no_spotify, agent=agent,
-                                thinking=thinking_override(args))
+                                thinking=thinking_override(args), enricher=enricher)
         results.append(result)
         print(f"   {result['n_ok']}/{result['n_total']} profiles OK — avg quality {result['avg_quality']:.3f} "
               f"in {result['total_wallclock_s']}s")
@@ -664,6 +840,9 @@ def main() -> int:
     for r in results:
         (out_dir / f"per_{r['model']}.json").write_text(
             json.dumps(r, indent=2, ensure_ascii=False))
+
+    # Cross-run memory (append-only): feeds the tag-harvest step (eval/harvest.py).
+    n_hist = append_run_history(results, out_dir, ts)
 
     leaderboard = render_leaderboard(results, args)
     lb_path = out_dir / f"leaderboard_{ts}.md"
@@ -684,6 +863,7 @@ def main() -> int:
     for fp in all_files:
         print(f"\n📄 Wrote:{' '*2}{fp}")
     print(f"\n   (per-model detail under {out_dir}/)")
+    print(f"   (🧾 {n_hist} rec-runs appended → {out_dir / 'runs_history.jsonl'} — feeds 'make harvest')")
     return 0
 
 

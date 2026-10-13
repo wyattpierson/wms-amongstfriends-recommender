@@ -1,0 +1,111 @@
+{
+  "profile": "club_kid",
+  "description": "Answer key (SEED) for the club_kid fixture: what's a good rec for THIS listener (body-first, melody kept, era-spanning) vs a lazy 'dance' echo. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed 2026-10-01; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "Reviewed 2026-10-03: seed good-side (Disclosure, Fred again.., Rosalía) confirmed by the user; good side extended with what the 8B actually produces and the user approves (Flume, RÜFÜS DU SOL, Dua Lipa); bad side extended with the real lane-misses (Radiohead, A$AP Rocky, Frank Ocean). Single-lane (dance) profile; the teeth are WITHIN the lane (move + melody + voice vs drop-slop) plus the era-spanning rule.",
+  "good": [
+    {
+      "artist": "Disclosure",
+      "tier": "expected",
+      "reason": "ck-1/ck-4: bouncy club music that keeps the melody and the voice — the melodic house pole of the profile"
+    },
+    {
+      "artist": "Fred again..",
+      "tier": "expected",
+      "reason": "ck-3/ck-5: heavy but emotional, forward-looking, human voice under the weight — the 2020s anchor of the whole profile"
+    },
+    {
+      "artist": "Rosalía",
+      "tier": "novel",
+      "reason": "ck-6: latin bounce with a point of view and production that 'sounds like the future' — the cleanest cross-lane move that keeps the body-first rule"
+    },
+    {
+      "artist": "Flume",
+      "tier": "expected",
+      "reason": "user-graded 'great' 2026-10-03 (Skin); ck-3 lane: heavy electronic that keeps the melody and a human voice"
+    },
+    {
+      "artist": "RÜFÜS DU SOL",
+      "tier": "expected",
+      "reason": "user-graded 'great' 2026-10-03 (SOLACE); ck-1/ck-3 lane: melodic dance with feeling under the weight"
+    },
+    {
+      "artist": "Dua Lipa",
+      "tier": "expected",
+      "reason": "user-graded 'great' 2026-10-03 (Future Nostalgia); ck-1 lane: bouncy, melodic dance-pop — Confessions II's direct descendant"
+    }
+  ],
+  "bad": [
+    {
+      "artist": "Martin Garrix",
+      "tier": "expected",
+      "pair": "melody-vs-drops",
+      "reason": "ck-4: 'I don't get the festival edm that's all drops and no melody' — the lazy 'big dance' read of the profile is exactly what the review rules out"
+    },
+    {
+      "artist": "Doja Cat",
+      "tier": "expected",
+      "reason": "the 'club pop with vocals' read of ck-5 — but the reviews are about the production being forward-looking and the groove being physical, not the hook being catchy"
+    },
+    {
+      "artist": "Radiohead",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'a very bad fit' — not dance music at all; the profile is body-first"
+    },
+    {
+      "artist": "A$AP Rocky",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'a really bad fit' — rap, not body-first dance"
+    },
+    {
+      "artist": "Frank Ocean",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'isn't good' — slow R&B; the voice is there but the body isn't"
+    }
+  ],
+
+  "tags": {
+    "madonna":       { "genres": { "coarse": "dance" }, "era": "2000s" },
+    "kaytranada":    { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "jamie xx":      { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "baauer":        { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "tinashe":       { "genres": { "coarse": "rnb" }, "era": "2020s", "note": "dance R&B" },
+    "bad bunny":     { "genres": { "coarse": "latin" }, "era": "2020s" },
+    "disclosure":    { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "fred again..":  { "genres": { "coarse": "dance" }, "era": "2020s" },
+    "rosalía":       { "genres": { "coarse": "latin" }, "era": "2010s" },
+    "martin garrix": { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "doja cat":      { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "flume":         { "genres": { "coarse": "dance" }, "era": "2010s",
+      "note": "user-graded great 2026-10-03 (Skin)" },
+    "rüfüs du sol":  { "genres": { "coarse": "dance" }, "era": "2010s",
+      "note": "user-graded great 2026-10-03 (SOLACE)" },
+    "dua lipa":      { "genres": { "coarse": "dance", "fine": "dance pop" }, "era": "2010s",
+      "note": "user-graded great 2026-10-03 (Future Nostalgia)" },
+    "cashmere cat":  { "genres": { "coarse": "dance" }, "era": "2010s",
+      "note": "user 2026-10-03: doesn't know enough to judge" },
+    "st. vincent":   { "genres": { "coarse": "rock" }, "era": "2010s",
+      "note": "user 2026-10-03: isn't terrible, but also not good" },
+    "radiohead":     { "genres": { "coarse": "rock" }, "era": "2010s",
+      "note": "user 2026-10-03: very bad fit" },
+    "a$ap rocky":    { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: really bad fit — not body-first dance" },
+    "frank ocean":   { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user 2026-10-03: isn't good for this profile" },
+    "avicii":        { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "the weeknd":    { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "billie eilish": { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "taylor swift":  { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "post malone":   { "genres": { "coarse": "pop" }, "era": "2010s" }
+  },
+
+  "constraints": [
+    { "check": "lane_balance", "lane": "dance", "area": "pop", "level": "coarse", "value": 0.5, "weight": 2,
+      "reason": "five of six reviews are dance/club (ck-1…ck-4, ck-6) with R&B as the voice-bridge (ck-5): dance = +1, adjacent pop = +0.5, tagged hiphop/other = −1; untagged ignored. A rap-only or rock-only answer ignores the profile entirely" },
+    { "check": "min_distinct_decades", "value": 2, "weight": 1,
+      "reason": "the 5★s span 2005 (Confessions II) and 2023 (DeBÍ TiRAR MáS FOToS) and ck-1 says 'twenty years later it still slaps harder than half the dance music coming out now' — this listener rewards both timeless and current" }
+  ],
+
+  "justification_keywords": ["bass", "groove", "club", "melody", "momentum", "vocal", "bounce"]
+}

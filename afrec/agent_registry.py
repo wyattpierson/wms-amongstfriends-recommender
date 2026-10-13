@@ -29,6 +29,7 @@ reference table (`make agents` / `python -m afrec.agents`).
 
 from __future__ import annotations
 
+import inspect
 import os
 from dataclasses import dataclass, field
 from typing import Callable
@@ -80,9 +81,43 @@ def _register(
         raise ValueError(f"agent '{tag}' is already registered — never re-register a published version")
 
     def _run(reviews, llm, **kw):
+        # Circuit-break EVERY verifier that passes through here (eval, duels,
+        # production, taste.py): a quota-exhausted or down catalog API must
+        # flag the run, never silently drop the recs. No agent module needs
+        # to know about this — it's infrastructure, not playbook.
+        verifier = kw.get("verifier")
+        guard = None
+        if verifier is not None:
+            guard = pipeline.VerificationGuard(verifier, log=kw.get("log"))
+            kw = {**kw, "verifier": guard}
+        # Enrichment, same philosophy as the guard: infrastructure, not
+        # playbook. An injected Enricher (or a ready catalog_facts dict)
+        # becomes a `catalog_facts` kwarg — offered to agents that accept
+        # it, ignored for versions whose run() doesn't (the A/B invariant:
+        # a published version runs byte-identically without the param).
+        enricher = kw.pop("enricher", None)
+        facts = kw.pop("catalog_facts", None)
+        if not facts and enricher is not None and enricher.available:
+            pairs = [(r["artist"], r["album"]) for r in reviews]
+            facts = enricher.fact_map(pairs)
+        if facts and _accepts_kw(run, "catalog_facts"):
+            kw = {**kw, "catalog_facts": facts}
         outcome = run(reviews, llm, **kw)
         outcome.agent = tag           # stamp the version on every run
+        if guard is not None and guard.error:
+            # Verification died mid-run: the recs the agent accepted as
+            # "verified" were passthroughs — flip them to False so recorded
+            # data is honest, and flag the run for the eval/leaderboard.
+            outcome.verification_error = guard.error
+            for r in outcome.recs:
+                r.verified = False
+            outcome.verified_count = 0
+        if enricher is not None and enricher.error:
+            # Enrichment latched mid-run: facts went cache-only. The run is
+            # LESS informed, never failed — flag it, don't touch the recs.
+            outcome.enrichment_error = enricher.error
         return outcome
+
 
     agent = Agent(id=id, version=version, name=name, summary=summary,
                   run=_run, details=details or {})
@@ -90,6 +125,17 @@ def _register(
     if default or _DEFAULT_TAG is None:
         _DEFAULT_TAG = tag
     return agent
+
+
+def _accepts_kw(fn: Callable, name: str) -> bool:
+    """True if fn's signature accepts `name` explicitly or via **kwargs."""
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    if name in params:
+        return True
+    return any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
 
 def add_alias(old_tag: str, new_tag: str) -> None:

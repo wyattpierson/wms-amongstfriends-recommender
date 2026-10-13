@@ -28,6 +28,8 @@ import json
 import datetime
 from pathlib import Path
 
+import goldenset as _gs                  # labeled.jsonl (per-rec verdicts) — same dir, no cycle
+
 HERE = Path(__file__).resolve().parent
 GOLDEN_DIR = HERE / "golden"
 SCORES_LOG = GOLDEN_DIR / "scores.jsonl"
@@ -370,6 +372,68 @@ def elo_from_duels(k: float = 32.0, start: float = 1000.0) -> dict:
     return out
 
 
+def agent_duel_stats() -> dict:
+    """
+    Agent-level results from SAME-MODEL duels (duels.py `agents`): when two
+    agents duel on one model, the verdict is an AGENT win/loss — the model
+    must never be credited for beating itself. (elo_from_duels already keeps
+    these out of the model's ladder by keying them "Model [agent]"; this rolls
+    the same-model duels up per AGENT across models, which the per-model
+    ladders can't show.)
+
+    A duel counts as same-model when every contestant label (from the
+    `agents` map) refers to one single model. Mixed-model duels are model
+    comparisons and are skipped here.
+
+    Returns {agent: {wins, losses, ties, duels, win_rate}}.
+    """
+    wins: dict[str, int] = {}
+    losses: dict[str, int] = {}
+    ties: dict[str, int] = {}
+    seen: dict[str, int] = {}
+
+    def _model_of(label: str) -> str:
+        # "Model [agent]" → "Model"; bare "Model" → "Model"
+        return label.rsplit(" [", 1)[0] if " [" in label else label
+
+    for d in load_duels():
+        agents = d.get("agents") or {}
+        if not agents:
+            continue
+        models = {_model_of(l) for l in agents}
+        if len(models) != 1:
+            continue                       # mixed-model duel → model comparison
+        ranked = [agents[m] for m in d.get("ranking", []) if m in agents]
+        unranked = [agents[m] for m in (d.get("unranked") or []) if m in agents]
+        tied = [agents[m] for m in (d.get("ties") or []) if m in agents]
+        contest = list(dict.fromkeys(ranked + unranked + tied))
+        if len(contest) < 2:
+            continue
+        for a in contest:
+            seen[a] = seen.get(a, 0) + 1
+        if tied and not ranked:
+            for a in contest:
+                ties[a] = ties.get(a, 0) + 1
+            continue
+        for i, better in enumerate(ranked):
+            for worse in ranked[i + 1:]:
+                wins[better] = wins.get(better, 0) + 1
+                losses[worse] = losses.get(worse, 0) + 1
+        for m in unranked:
+            for better in ranked:
+                wins[better] = wins.get(better, 0) + 1
+                losses[m] = losses.get(m, 0) + 1
+
+    out = {}
+    for a in seen:
+        w, l, t = wins.get(a, 0), losses.get(a, 0), ties.get(a, 0)
+        out[a] = {
+            "wins": w, "losses": l, "ties": t, "duels": seen[a],
+            "win_rate": round(w / (w + l), 3) if (w + l) else None,
+        }
+    return out
+
+
 def all_models() -> list[str]:
     """Every model name seen in scores or duels, sorted."""
     models = {r.get("model") for r in load_scores() if r.get("model")}
@@ -379,3 +443,70 @@ def all_models() -> list[str]:
         models.update(d.get("ties", []) or [])
     models.discard(None)
     return sorted(models)
+
+
+# ── Pool-vs-item consistency ─────────────────────────────────────────────────
+
+def pool_item_consistency(min_decisive: int = 3) -> list[dict]:
+    """
+    Cross-check the two human signals against each other: for every 1–5 pool
+    score whose per-rec verdicts are known (labeled.jsonl), does the pool
+    score agree with the items?
+
+    For each score record, every rec is matched to its most-recent DECISIVE
+    label (good/bad) in labeled.jsonl by (profile, artist) — and by album too
+    when both sides name one. good_frac = good / (good + bad) over the recs
+    that have a decisive label. Records with fewer than `min_decisive`
+    decisive recs are excluded (not enough signal).
+
+    A record is a MISMATCH when the pool says good (4–5) but less than 50% of
+    the judged recs were good, or the pool says bad (1–2) but more than 50%
+    were good. Neutral pools (3) never mismatch — they claim nothing.
+
+    Returns one dict per eligible record, oldest first:
+      {ts, profile, model, agent, pool, good, bad, good_frac, n_decisive, mismatch}
+    """
+    if not _gs.LABELED_LOG.exists():
+        return []
+    # Index: (profile, normalized artist) -> [rows, in file order]
+    idx: dict[tuple, list[dict]] = {}
+    for r in _gs.load_labeled():
+        idx.setdefault((r.get("profile") or "",
+                        _gs._normalize(r.get("artist", ""))), []).append(r)
+
+    out = []
+    for s in load_scores():
+        recs = s.get("recs") or []
+        if not recs:
+            continue
+        prof = s.get("profile") or ""
+        good = bad = 0
+        for rec in recs:
+            al = _gs._normalize(rec.get("album") or "")
+            label = None
+            for row in idx.get((prof, _gs._normalize(rec.get("artist", ""))), []):
+                lab = row.get("label")
+                if lab not in ("good", "bad"):
+                    continue
+                if al:
+                    lal = _gs._normalize(row.get("album") or "")
+                    if lal and lal != al:
+                        continue
+                label = lab            # most recent decisive label wins
+            if label == "good":
+                good += 1
+            elif label == "bad":
+                bad += 1
+        n = good + bad
+        if n < min_decisive:
+            continue
+        frac = good / n
+        pool = s.get("score")
+        mismatch = (pool >= 4 and frac < 0.5) or (pool <= 2 and frac > 0.5)
+        out.append({
+            "ts": s.get("ts", ""), "profile": prof, "model": s.get("model", ""),
+            "agent": s.get("agent", ""), "pool": pool,
+            "good": good, "bad": bad, "good_frac": round(frac, 3),
+            "n_decisive": n, "mismatch": mismatch,
+        })
+    return out

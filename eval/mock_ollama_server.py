@@ -13,18 +13,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ARTISTS = json.dumps(["Sufjan Stevens", "James Blake", "Grouper", "Nicolas Jaar",
                       "Arca", "Shamir", "Carpenter Brut", "Lido"])
+# genre/era here are the MOCK model's self-report — same contract as a real
+# model's (display/harvest fuel only, never scored on).
 ALBUMS = json.dumps([
-    {"artist": "Sufjan Stevens", "album": "Carrie & Lowell", "confidence": 0.9, "reason": "fits"},
-    {"artist": "James Blake", "album": "overgrown", "confidence": 0.8, "reason": "fits"},
-    {"artist": "Grouper", "album": "Beeswax", "confidence": 0.7, "reason": "fits"},
-    {"artist": "Nicolas Jaar", "album": "Space Is Only Noise", "confidence": 0.6, "reason": "fits"},
-    {"artist": "Arca", "album": "Mulatta", "confidence": 0.7, "reason": "fits"},
-    {"artist": "Shamir", "album": "Nervous", "confidence": 0.6, "reason": "fits"},
-    {"artist": "Carpenter Brut", "album": "Surgery", "confidence": 0.8, "reason": "fits"},
-    {"artist": "Lido", "album": "The New World Order", "confidence": 0.7, "reason": "fits"},
+    {"artist": "Sufjan Stevens", "album": "Carrie & Lowell", "confidence": 0.9, "reason": "fits", "genre": "indie", "era": "2010s"},
+    {"artist": "James Blake", "album": "overgrown", "confidence": 0.8, "reason": "fits", "genre": "alt rnb", "era": "2010s"},
+    {"artist": "Grouper", "album": "Beeswax", "confidence": 0.7, "reason": "fits", "genre": "ambient", "era": "2010s"},
+    {"artist": "Nicolas Jaar", "album": "Space Is Only Noise", "confidence": 0.6, "reason": "fits", "genre": "electronic", "era": "2010s"},
+    {"artist": "Arca", "album": "Mulatta", "confidence": 0.7, "reason": "fits", "genre": "electronic", "era": "2010s"},
+    {"artist": "Shamir", "album": "Nervous", "confidence": 0.6, "reason": "fits", "genre": "alt rnb", "era": "2010s"},
+    {"artist": "Carpenter Brut", "album": "Surgery", "confidence": 0.8, "reason": "fits", "genre": "synthwave", "era": "2010s"},
+    {"artist": "Lido", "album": "The New World Order", "confidence": 0.7, "reason": "fits", "genre": "synthwave", "era": "2020s"},
 ])
 RETRY = json.dumps([
-    {"artist": "Nicolas Jaar", "album": "Cumbia", "confidence": 0.6, "reason": "fits"}
+    {"artist": "Nicolas Jaar", "album": "Cumbia", "confidence": 0.6, "reason": "fits", "genre": "electronic", "era": "2000s"}
 ])
 
 

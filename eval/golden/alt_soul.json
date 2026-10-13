@@ -1,0 +1,93 @@
+{
+  "profile": "alt_soul",
+  "description": "Answer key (SEED) for the alt_soul fixture: what's a good rec for THIS listener (voice first, heartbreak with soul) vs a lazy 'R&B' or 'heartbreak pop' echo. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed 2026-10-01; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "Reviewed 2026-10-03: SZA confirmed, Solange promoted to good; Frank Ocean demoted to a 'fine, not perfect' middle (male voice, doesn't capture the fixture's essence — it is ALL FEMALE VOICES, which the recs and this key both miss); Thundercat, Tame Impala, Drake added to bad (voice is not the point / production-first). The user flags that the genre has a lot this key does not capture yet — grow it from duels/interactive grading. Every entry is inferable from the fixture reviews.",
+  "good": [
+    {
+      "artist": "SZA",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03; as-3/as-4: modern R&B that takes risks with the vocal up front and isn't trying to be a hit"
+    },
+    {
+      "artist": "Solange",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03 (A Seat at the Table); as-1/as-4: warm, risky, vocal-first R&B — approved by this user for four profiles now"
+    },
+    {
+      "artist": "Yves Tumor",
+      "tier": "novel",
+      "reason": "as-3/as-4: 'dark, sensual, a little dangerous' taken further — the cleanest out-of-lane move that keeps the voice-first rule"
+    }
+  ],
+  "bad": [
+    {
+      "artist": "The Weeknd",
+      "tier": "expected",
+      "pair": "voice-vs-production",
+      "reason": "the 'dark sensual R&B' read of as-3/as-4 reaches for him — but the reviews are about the voice and the song being the point ('the production wraps around it instead of burying it'), and his lane is the production-first pole"
+    },
+    {
+      "artist": "Olivia Rodrigo",
+      "tier": "expected",
+      "reason": "the 'heartbreak' read of as-2/as-5 reaches for her — but this profile's heartbreak is soul and voice and specificity, not production-forward pop"
+    },
+    {
+      "artist": "Thundercat",
+      "tier": "expected",
+      "reason": "user 2026-10-03: bad here — mostly instrumental; the voice is not the point"
+    },
+    {
+      "artist": "Tame Impala",
+      "tier": "expected",
+      "reason": "user 2026-10-03: bad here — psychedelic production-first, not the voice/songcraft pole"
+    },
+    {
+      "artist": "Drake",
+      "tier": "expected",
+      "reason": "user 2026-10-03: bad here — the production-first R&B pole the voice-vs-production pair exists to reject"
+    }
+  ],
+
+  "tags": {
+    "lianne la havas": { "genres": { "coarse": "neo-soul" }, "era": "2010s" },
+    "nilüfer yanya":  { "genres": { "coarse": "pop" }, "era": "2020s" },
+    "banks":          { "genres": { "coarse": "rnb" }, "era": "2020s" },
+    "kali uchis":     { "genres": { "coarse": "rnb" }, "era": "2020s" },
+    "arlo parks":     { "genres": { "coarse": "pop" }, "era": "2020s" },
+    "frank ocean":    { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user 2026-10-03: fine, not perfect — doesn't capture the fixture's essence (all-female voices)" },
+    "sza":            { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user-graded good 2026-10-03" },
+    "solange":        { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user-graded good 2026-10-03" },
+    "bon iver":       { "genres": { "coarse": "pop", "fine": "folk" }, "era": "2000s",
+      "note": "user 2026-10-03: fine, not perfect — aching and specific but not the essence" },
+    "anderson .paak": { "genres": { "coarse": "rnb", "fine": "funk rnb" }, "era": "2010s",
+      "note": "user 2026-10-03: fine, not perfect" },
+    "thundercat":     { "genres": { "coarse": "jazz", "fine": "funk" }, "era": "2010s",
+      "note": "user 2026-10-03: bad — voice is not the point" },
+    "tame impala":    { "genres": { "coarse": "pop", "fine": "psychedelic" }, "era": "2010s",
+      "note": "user 2026-10-03: bad — production-first" },
+    "drake":          { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: bad — production-first R&B pole" },
+    "yves tumor":     { "genres": { "coarse": "rnb" }, "era": "2010s", "note": "genre-bending dark R&B" },
+    "the weeknd":     { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "olivia rodrigo": { "genres": { "coarse": "pop" }, "era": "2020s" },
+    "halsey":         { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "taylor swift":   { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "bruno mars":     { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "dua lipa":       { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "sasha grey":     { "genres": { "coarse": "rnb" }, "era": "2020s" }
+  },
+
+  "constraints": [
+    { "check": "lane_balance", "lane": "rnb", "area": "neo-soul", "level": "coarse", "value": 0.5, "weight": 2,
+      "reason": "three of five reviews are R&B/neo-soul family (as-1 Blood, as-3 Godess, as-4 Red Moon in Venus) and the two pop reviews are voice-first bridges (as-2, as-5): rnb = +1, adjacent neo-soul = +0.5, tagged pop/other = −1; untagged ignored" },
+    { "check": "min_distinct_decades", "value": 2, "weight": 1,
+      "reason": "as-1 anchors 2019 ('her voice sounds like it could be from any decade') and the rest are 2021–23 — the profile rewards timeless voice AND current writing, not one or the other" }
+  ],
+
+  "justification_keywords": ["heartbreak", "vocal", "warm", "dark", "soul", "real", "personality", "specific"]
+}

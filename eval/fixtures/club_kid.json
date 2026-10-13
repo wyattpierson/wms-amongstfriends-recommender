@@ -1,0 +1,56 @@
+{
+  "profile": "club_kid",
+  "description": "Body-first: the beat is the point. Dance music across eras — 2005 dance-pop (Madonna), 2016 electro-funk (Kaytranada), 2015 heavy electronic (Jamie xx), 2012 dark bounce (Baauer), 2022 dance R&B (Tinashe), 2023 latin bounce (Bad Bunny) — with some pop, never pure EDM, always with melody and a human voice.",
+  "source": "hand-written fixture",
+  "notes": "Single-lane (dance/club) where the test is MOVE over vibe: does it make you move, does it keep the melody, does it span eras? Overlaps the full_spectrum profile on U and DeBÍ TiRAR MáS FOToS (same albums, body-first read) and the warm_groove profile on 99.9% (groove-first vs dancefloor-first). Reviewed with wyatt 2026-10-03: read confirmed (dancy, some pop, not pure EDM). The golden set (eval/golden/club_kid.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Confessions II", "metadata": { "albumName": "Confessions II", "artistName": "Madonna" } },
+      "rating": 5,
+      "reviewId": "ck-1",
+      "text": "This one never stops being great. The whole thing feels like a late night club mix and it works — you can feel the history of dance music in it but it still feels fresh. Hung Up is the best pop song of the 2000s and the album never dips below 9. Twenty years later it still slaps harder than half the dance music coming out now",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "99.9%", "metadata": { "albumName": "99.9%", "artistName": "Kaytranada" } },
+      "rating": 5,
+      "reviewId": "ck-2",
+      "text": "Just pure momentum. The production is so good you can hear how much he toiled over every detail — the swing in the drums, the way the keys sit under the bass. It's hiphop and it's also dance music, and I don't know anyone else who makes it feel this alive. Bounce is the song I put on when I want to move",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "In Waves", "metadata": { "albumName": "In Waves", "artistName": "Jamie xx" } },
+      "rating": 5,
+      "reviewId": "ck-3",
+      "text": "Heavy music that's also emotional, which is the rare combination. The bass is massive but there's always a melody or a feeling under the weight. Loud Places is a club bop and the slower tracks are the best part. Best electronic album of the decade, not close",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "U", "metadata": { "albumName": "U", "artistName": "Baauer" } },
+      "rating": 5,
+      "reviewId": "ck-4",
+      "text": "Weirdest club music I know. Dark and bouncy and a little aggressive but there's always a melody under it. 25 minutes long and it sounds like it took 25 years. I don't get the festival edm that's all drops and no melody — this is the club music I actually want",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Popstar", "metadata": { "albumName": "Popstar", "artistName": "Tinashe" } },
+      "rating": 5,
+      "reviewId": "ck-5",
+      "text": "Tinashe is the future of dance music and this album is the proof. It's R&B and it's house and it's a club record and none of those words quite fit. The vocals are sultry and up front and the production is forward-looking — this is what dance music sounds like when it grows up. Naked is the best song of 2022",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "DeBÍ TiRAR MáS FOToS", "metadata": { "albumName": "DeBÍ TiRAR MáS FOToS", "artistName": "Bad Bunny" } },
+      "rating": 5,
+      "reviewId": "ck-6",
+      "text": "The bounce on this is hypnotic. Dark and bouncy and the dembow groove doesn't let up for an hour — it's the most physical record I own. And he's actually saying something, so it's not just a party record. Perro Negro is a club anthem",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

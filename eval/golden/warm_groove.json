@@ -1,21 +1,76 @@
 {
   "profile": "warm_groove",
   "description": "Answer key (SMALL SEED) for the warm_groove fixture: the test is holding the range (groove, neo-soul, art-rap) without collapsing to one centroid. Grow from interactive labels.",
-  "annotated_by": "wyatt (seed — small on purpose; judge with `evaluate.py --interactive --profile warm_groove` and promote)",
-  "annotated_at": "2026-09-21",
-  "notes": "SEED — a handful of entries to give the golden column its first teeth; every entry is inferable from the fixture's four reviews. Judge the engine with `evaluate.py --interactive --profile warm_groove` and promote the artists that keep coming up good/bad here.",
+  "annotated_by": "wyatt (seed 2026-09-21; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "Reviewed 2026-10-03: the profile's core axis is BRIGHT (warm, bouncy, playful, dance-y-not-dance) — Danny Brown and Vince Staples were good-side seeds that the user flipped to bad (dark). Good side rebuilt from user grading of real v1.1 recs + user's own fits (Jungle, Channel Tres, Nao, Ari Lennox). Every entry must be inferable from the fixture's four reviews.",
   "good": [
-    { "artist": "Danny Brown", "tier": "expected", "pair": "craft-vs-slop",
-      "reason": "ph-1/ph-3: producer-obsessed, lyric-first hiphop with real texture — the same 'toiled over every detail' standard" },
-    { "artist": "Vince Staples", "tier": "expected",
-      "reason": "ph-1: hiphop that's also dance music; the beat-led, alive, non-generic pole" },
+    { "artist": "Anderson .Paak", "tier": "expected", "pair": "craft-vs-slop",
+      "reason": "user-graded 'great fit, Malibu especially on brand' 2026-10-03 — and inferable: ph-2 is a The Internet record (Syd + Steve Lacy), and Steve Lacy produced Malibu. Bright, bouncy, toiled-over production" },
     { "artist": "Smino", "tier": "novel",
-      "reason": "ph-3/ph-4: the literary/wordplay pole taken further — hiphop as a real art form, the move the profile is one step from making" }
+      "reason": "ph-3/ph-4: the literary/wordplay pole taken further — hiphop as a real art form, the move the profile is one step from making" },
+    { "artist": "Solange", "tier": "novel",
+      "reason": "user-graded good 2026-10-03: great vibe and tone fit — the hazy neo-soul lane of ph-2, warm and bright" },
+    { "artist": "Jungle", "tier": "novel",
+      "reason": "user 2026-10-03: 'a little more poppy, but fits well' — warm, bouncy, playful groove" },
+    { "artist": "Channel Tres", "tier": "novel",
+      "reason": "user 2026-10-03: 'a stretch' but fits — disco-funk bounce in the ph-1 playful lane" },
+    { "artist": "Nao", "tier": "novel",
+      "reason": "user 2026-10-03: warm, groovy R&B — a lane-crossing bridge off ph-1/ph-2" },
+    { "artist": "Ari Lennox", "tier": "novel",
+      "reason": "user 2026-10-03: light, groove-first soul — a lane-crossing bridge off ph-2" }
   ],
+
+  "tags": {
+    "kaytranada":    { "genres": { "coarse": "electro-funk" }, "era": "2010s" },
+    "the internet":  { "genres": { "coarse": "neo-soul" }, "era": "2010s" },
+    "noname":        { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "jamila woods":  { "genres": { "coarse": "hiphop", "fine": "art rap" }, "era": "2010s" },
+    "danny brown":   { "genres": { "coarse": "hiphop", "fine": "art rap" }, "era": "2010s",
+      "note": "user 2026-10-03: dark — very bad fit here" },
+    "vince staples": { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: too rappier, darker, less bright" },
+    "anderson .paak": { "genres": { "coarse": "rnb", "fine": "funk rnb" }, "era": "2010s",
+      "note": "user-graded great fit 2026-10-03 (Malibu on brand)" },
+    "solange":       { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user-graded good 2026-10-03 — vibe and tone fit" },
+    "jungle":        { "genres": { "coarse": "pop", "fine": "dub funk" }, "era": "2010s",
+      "note": "user 2026-10-03: poppy but fits well" },
+    "channel tres":  { "genres": { "coarse": "rnb", "fine": "disco funk" }, "era": "2020s",
+      "note": "user 2026-10-03: a stretch, but fits" },
+    "nao":           { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "ari lennox":    { "genres": { "coarse": "rnb" }, "era": "2020s" },
+    "j dilla":       { "genres": { "coarse": "hiphop", "fine": "jazz hiphop" }, "era": "2000s",
+      "note": "user 2026-10-03: neither good nor bad — too hiphop-instrumental focused, not bouncy in the same way" },
+    "flying lotus":  { "genres": { "coarse": "jazz", "fine": "experimental" }, "era": "2010s",
+      "note": "user 2026-10-03: too instrumental, not bright/dancey enough, too chaotic" },
+    "death grips":   { "genres": { "coarse": "hiphop", "fine": "experimental" }, "era": "2010s",
+      "note": "user 2026-10-03: dark and abrasive — bad fit" },
+    "smino":         { "genres": { "coarse": "hiphop", "fine": "art rap" }, "era": "2010s" },
+    "6ix9ine":       { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "lil uzi vert":  { "genres": { "coarse": "hiphop" }, "era": "2010s" }
+  },
+
+  "constraints": [
+    { "check": "min_distinct_genres", "level": "coarse", "value": 2, "weight": 2,
+      "reason": "the fixture spans electro-funk + neo-soul + hiphop; an answer collapsed to one genre is the exact failure the profile exists to test" },
+    { "check": "max_single_genre_share", "level": "coarse", "value": 0.75, "weight": 1,
+      "reason": "mirror, not diversity: hiphop-heavy is fine (2 of 4 reviews are hiphop-adjacent), hiphop-ONLY is the centroid collapse" }
+  ],
+
+  "justification_keywords": ["groove", "swing", "lyric", "production", "neo-soul", "literary", "art form", "bop", "bright", "playful", "warm", "bouncy"],
   "bad": [
     { "artist": "6ix9ine", "tier": "expected", "pair": "craft-vs-slop",
       "reason": "the lazy 'hiphop' centroid answer: zero production craft, zero lyricism — the exact opposite of all four reviews" },
     { "artist": "Lil Uzi Vert", "tier": "expected",
-      "reason": "genre-echo failure: hiphop-tagged, none of the texture/lyricism the profile actually rewards" }
+      "reason": "genre-echo failure: hiphop-tagged, none of the texture/lyricism the profile actually rewards" },
+    { "artist": "Danny Brown", "tier": "expected",
+      "reason": "user 2026-10-03: 'a very bad fit because that music is dark, where everything here is bright' (was a good-side seed — the user's taste is brighter than the seed assumed)" },
+    { "artist": "Vince Staples", "tier": "expected",
+      "reason": "user 2026-10-03: 'mostly a bad fit — much rappier than anything here, and darker and less bright'" },
+    { "artist": "Flying Lotus", "tier": "expected",
+      "reason": "user 2026-10-03: 'too instrumental, not bright and dancey enough, a little too chaotic and alternative'" },
+    { "artist": "Death Grips", "tier": "expected",
+      "reason": "user 2026-10-03: bad fit for similar reasons — dark and abrasive against the fixture's warmth and playfulness" }
   ]
 }

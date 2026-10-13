@@ -85,7 +85,10 @@ def main():
     reviews = [{"reviewId": "r1", "type": "album", "album": "Old Friends EP",
                 "artist": "Some Old Artist", "rating": 4, "text": "I love the music already in my library.",
                 "groupId": "g1"}]
-    out = pipeline.run(reviews, HallucinatingLM(), verifier=spotify_like_verifier)
+    # Pin the agent: this HallucinatingLM speaks the artist-then-album prompt
+    # family, and the selected agent can vary via AFREC_AGENT in .env.
+    out = pipeline.run(reviews, HallucinatingLM(), verifier=spotify_like_verifier,
+                       agent="artist-then-album@v1")
 
     # Raw pipeline accounting
     assert out.ok, "pipeline should still succeed after retries"

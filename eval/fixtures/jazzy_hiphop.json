@@ -1,9 +1,17 @@
 {
   "profile": "jazzy_hiphop",
-  "description": "Deep into jazz-rooted hip-hop: sample-flipped, head-nod boom-bap with real digging. Hates playlist-filler lo-fi. STRUCTURAL DRAFT — tweak the details.",
+  "description": "Deep into jazz-rooted hip-hop: sample-flipped, head-nod boom-bap with real digging. Chill, relaxing, jazzy rap — experimental jazz-adjacent stuff and playlist filler miss the point.",
   "source": "hand-written fixture",
-  "notes": "Focused single-lane profile: the test is subtlety WITHIN jazz-hip-hop (canon vs filler, digging depth, mood), plus one clean novel bridge out of the lane. Edit freely — the golden set (eval/golden/jazzy_hiphop.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "notes": "Focused single-lane profile: the test is subtlety WITHIN jazz-hip-hop (canon vs filler, digging depth, chill vs experimental), plus one clean novel bridge out of the lane. Reviewed with wyatt 2026-10-03: added jh-1 (Dilla 4★), jh-4 (Skyzoo 4★), jh-6 (Cosmogramma 2★ — the classic over-recommendation). The golden set (eval/golden/jazzy_hiphop.json) is the answer key and every entry in it must be inferable from these reviews.",
   "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Donuts", "metadata": { "albumName": "Donuts", "artistName": "J Dilla" } },
+      "rating": 4,
+      "reviewId": "jh-1",
+      "text": "Real digging, unfiltered. Chopped-up jazz and off-kilter drums, and it still relaxes me in a way almost nothing else does.",
+      "userId": "eval",
+      "groupId": null
+    },
     {
       "catalog": { "type": "album", "name": "Modal Soul", "metadata": { "albumName": "Modal Soul", "artistName": "Nujabes" } },
       "rating": 5,
@@ -21,10 +29,26 @@
       "groupId": null
     },
     {
+      "catalog": { "type": "album", "name": "Peddler Themes", "metadata": { "albumName": "Peddler Themes", "artistName": "Skyzoo" } },
+      "rating": 4,
+      "reviewId": "jh-4",
+      "text": "Chill, jazzy rap that just lets you unwind. Warm loops and the raps sit right on top of them — this is the vibe I come home to.",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
       "catalog": { "type": "album", "name": "People's Instinctive Travels and the Paths of Rhythm", "metadata": { "albumName": "People's Instinctive Travels and the Paths of Rhythm", "artistName": "A Tribe Called Quest" } },
       "rating": 4,
       "reviewId": "jh-5",
       "text": "Tribe at their best. Low Stakes but vibes",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Cosmogramma", "metadata": { "albumName": "Cosmogramma", "artistName": "Flying Lotus" } },
+      "rating": 2,
+      "reviewId": "jh-6",
+      "text": "A lot of people recommend this and it's good music — but it isn't really hip-hop, and the experimental side never lets me relax the way the rest of this list does.",
       "userId": "eval",
       "groupId": null
     }

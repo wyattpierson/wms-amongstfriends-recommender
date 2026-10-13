@@ -41,6 +41,12 @@ Typical use:
 
   # peek at the queue without generating anything
   python eval/duels.py agents --dry-run
+
+  # big-model duels on the 64 GB box: pause ≥5 min whenever the lineup
+  # changes so the pool can unload the previous model (llama_server frees
+  # an idle model after ~5 min)
+  python eval/duels.py models --contestants "gemma-4-26B-A4B,Qwen3.8-27B-Q8_0" \
+      --unload-wait
 """
 
 from __future__ import annotations
@@ -190,9 +196,12 @@ def done_map(state: dict | None) -> dict[str, dict]:
 # ── One duel (generation + judging), reusing taste.py's mechanics ────────────
 
 def run_matchup(profile: dict, conts: list[Contestant], base_url: str,
-                temperature: float, use_spotify: bool) -> str:
+                temperature: float, use_spotify: bool,
+                grade_winner: bool = False, enricher=None) -> str:
     """Generate for each contestant, let the human rank, append to duels.jsonl.
-    Returns the verdict string. Raises MatchupError on generation failure."""
+    With grade_winner=True, also walk the winner's individual recs
+    (good/bad/unsure → labeled.jsonl). Returns the verdict string.
+    Raises MatchupError on generation failure."""
     verifier = None
     if use_spotify:
         tok = ev.spotify.get_token()
@@ -213,7 +222,7 @@ def run_matchup(profile: dict, conts: list[Contestant], base_url: str,
             try:
                 agent = afrec_agents.get_agent(c.agent)
                 outcome = t._generate(profile, c.model, base_url, temperature,
-                                      verifier, agent)
+                                      verifier, agent, enricher=enricher)
             except LLMError as e:
                 raise MatchupError(f"{c.label} failed: {e}") from e
             except Exception as e:
@@ -292,6 +301,15 @@ def run_matchup(profile: dict, conts: list[Contestant], base_url: str,
         temperature=temperature,
     )
     print(f"\n✅ verdict → {verdict}   (saved to {he.DUELS_LOG.name})")
+
+    if grade_winner and ranking:
+        winner = ranking[0]
+        wc = next((c for c in conts if c.label == winner), None)
+        print(f"\n   Grading the winner's individual recs ({winner}):")
+        t.grade_recs(profile["name"], wc.model if wc else winner,
+                     responses[winner], agent=wc.agent if wc else "",
+                     source="duel")
+
     _print_elos()
     return verdict
 
@@ -326,6 +344,29 @@ def _big_model_guard(conts: list[Contestant]) -> bool:
     return True
 
 
+def _unload_pause(seconds: int, old: set[str], new: set[str]) -> None:
+    """Sleep so llama_server can unload an idle model (~5 min) before the
+    next lineup loads. Ticks every second; Ctrl-C aborts the wait (the outer
+    loop saves progress and stops the session)."""
+    leaving = sorted(old - new)
+    arriving = sorted(new - old)
+    why = []
+    if leaving:
+        why.append("unloading " + ", ".join(leaving))
+    if arriving:
+        why.append("loading " + ", ".join(arriving))
+    print(f"\n⏳  lineup change ({'; '.join(why) or 'same set, different order'}) — "
+          f"sleeping {seconds}s so the pool reclaims memory (Ctrl-C to skip)")
+    deadline = time.time() + seconds
+    while True:
+        remain = int(deadline - time.time())
+        if remain <= 0:
+            break
+        print(f"\r    ⏳  {remain:>4}s left  ", end="", flush=True)
+        time.sleep(min(1, remain))
+    print("\r" + " " * 40 + "\r", end="")
+
+
 def _pause() -> str:
     while True:
         try:
@@ -352,6 +393,7 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
         "models": args.models if cmd == "agents" else args.contestants,
         "profiles": args.profiles,
         "agents": [args.agent_a, args.agent_b] if cmd == "agents" else None,
+        "enrich": bool(getattr(args, "enrich", False)),
     }, ensure_ascii=False, sort_keys=True)
     name = args.session or f"{cmd}-{hashlib.sha1(key.encode()).hexdigest()[:8]}"
     state = load_state(name) or {
@@ -387,6 +429,14 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
     if skipped_before:
         print(f"\n(continuing — {skipped_before} finished duel(s) skipped)")
 
+    # What the pool probably still has loaded: the lineup of the last duel we
+    # actually RAN in this session (resume-safe). Nothing before the first
+    # duel → no sleep (we don't know what the pool holds from outside).
+    last_done = next((m for m in reversed(state["matchups"])
+                      if m.get("status") == "done"), None)
+    prev_models = ({c["model"] for c in last_done["contestants"]}
+                   if last_done else None)
+
     skip_next = False
     for i, (k, prof, conts) in enumerate(pending, 1):
         if skip_next:
@@ -402,6 +452,12 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
             })
             save_state(state)
             continue
+        cur_models = {c.model for c in conts}
+        models_before = prev_models
+        if (args.unload_wait > 0 and prev_models is not None
+                and cur_models != prev_models):
+            _unload_pause(args.unload_wait, prev_models, cur_models)
+        prev_models = cur_models
         print(f"\n{'═' * 62}\n   duel {i}/{len(pending)} of {len(matchups)} total")
         status = "done"
         verdict = ""
@@ -412,7 +468,9 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
             else:
                 verdict = run_matchup(prof, conts, args.base_url,
                                       args.temperature,
-                                      use_spotify=not args.no_spotify)
+                                      use_spotify=not args.no_spotify,
+                                      grade_winner=args.grade_winner,
+                                      enricher=args.enricher)
         except MatchupError as e:
             print(f"❌ {e}", file=sys.stderr)
             ans = _ask_line("   r = retry, s = skip, q = quit: ")
@@ -438,6 +496,11 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
         save_state(state)
+
+        # A guard-skipped matchup never loaded its models — the pool still
+        # holds what it held before, so don't advance the loaded-tracking.
+        if status == "skipped" and verdict.startswith("skipped (memory guard)"):
+            prev_models = models_before
 
         if status == "done" and i < len(pending):
             choice = _pause()
@@ -496,10 +559,25 @@ def main() -> int:
     common.add_argument("--temperature", type=float, default=0.7)
     common.add_argument("--no-spotify", action="store_true",
                         help="Skip Spotify verification (faster).")
+    common.add_argument("--enrich", action="store_true",
+                        help="Offer the enrichment layer's catalog facts to agents "
+                             "that accept them (pool-map@v1.2+). Off by default so runs "
+                             "stay comparable to the un-enriched baseline; agents "
+                             "without a facts path are unaffected.")
     common.add_argument("--session", default=None,
                         help="Session name for resume (default: auto from args).")
     common.add_argument("--dry-run", action="store_true",
                         help="Print the queue and exit — nothing is generated.")
+    common.add_argument("--grade-winner", action="store_true",
+                        help="After each verdict, grade the winner's individual recs "
+                             "good/bad/unsure (→ labeled.jsonl, source=duel)")
+    common.add_argument("--unload-wait", nargs="?", type=int, const=315,
+                        default=0, metavar="SECONDS",
+                        help="Sleep this long (default 315s = 5.25 min) whenever the "
+                             "model lineup changes between duels, so llama_server can "
+                             "unload the previous model (~5 min idle). For big-model "
+                             "duels on the 64 GB box: pass the flag with no value, or "
+                             "--unload-wait 400 for a custom pause.")
 
     parser = argparse.ArgumentParser(
         description="Batch interactive duels with resume. See module docstring.",
@@ -551,6 +629,19 @@ def main() -> int:
     else:
         contestants = parse_contestants(args.contestants, selected)
         matchups = models_matchups(contestants, profiles)
+
+    # Enrichment: one Enricher for the whole session (its Musicae budget and
+    # latch are per-session by design). None → agents run un-enriched, byte-
+    # identical to pre-enrichment behavior. Mirrors evaluate.py's --enrich.
+    enricher = None
+    if getattr(args, "enrich", False):
+        from afrec import enrich
+        enricher = enrich.Enricher(log=lambda s: print(f"   {s}", file=sys.stderr))
+        if not enricher.available:
+            print("   \u26a0\ufe0f  --enrich but no enrichment keys "
+                  "(LASTFM_API_KEY / MUSICAE_API_KEY) — facts unavailable; agents run "
+                  "their un-enriched path", file=sys.stderr)
+    args.enricher = enricher
 
     run_session(args.cmd, matchups, args)
     return 0

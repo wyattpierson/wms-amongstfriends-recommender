@@ -34,6 +34,22 @@ fields (all optional — old-style files score exactly as before):
   • NOVEL  — good entries with `tier: "novel"` are original moves for the
     listener (adjacent scene / cross-genre bridge). We track how many get
     hit: the 'originality' signal, separate from safe in-lane hits.
+
+3. STRUCTURE (response-level, still model-independent) — three optional
+top-level sections in the golden file, scored by score_response_structure():
+  • tags                   — hand-annotated artist facts: genre levels
+                             ({"coarse": "hiphop", "fine": "jazz hiphop"}) and
+                             era ("2000s"). Recs the model produces are looked
+                             up here; untagged recs are NEUTRAL (excluded from
+                             denominators), and tag coverage is reported.
+  • constraints            — named checks on the RESPONSE as a whole (genre
+                             spread, era spread, in-lane share). The principle
+                             is MIRROR, not diversity: the checks describe the
+                             fixture's own composition. Each check has a
+                             weight (default 1) — structure = weighted pass
+                             rate. See README.
+  • justification_keywords — a rec's `reason` containing any keyword scores a
+                             'just' hit (informational only; never in quality).
 """
 
 from __future__ import annotations
@@ -95,7 +111,9 @@ def golden_path_for(profile_name: str) -> Path:
 def load_golden_for(profile_name: str) -> dict | None:
     """
     Load one static golden set by profile name. Returns a dict:
-      {name, good:[{artist,album,note}], bad:[...], meta:{...}}
+      {name, good:[{artist,album,note}], bad:[...], meta:{...},
+       tags:{artist:{genres:{coarse,fine},era}}, constraints:[...],
+       justification_keywords:[...]}
     or None if no golden file exists for that profile.
     """
     p = golden_path_for(profile_name)
@@ -112,6 +130,282 @@ def load_golden_for(profile_name: str) -> dict | None:
         "good": _norm_artists(data.get("good", [])),
         "bad": _norm_artists(data.get("bad", [])),
         "meta": {k: data.get(k) for k in ("annotated_at", "notes", "reviewed") if k in data},
+        "tags": _norm_tags(data.get("tags", {})),
+        "constraints": _norm_constraints(data.get("constraints", [])),
+        "justification_keywords": [str(k).strip().lower()
+                                   for k in (data.get("justification_keywords") or [])
+                                   if str(k).strip()],
+    }
+
+
+# ── Structure: tags + response-level constraints ─────────────────────────────
+
+_LEVELS = ("coarse", "fine")
+
+
+def _norm_tags(raw) -> dict:
+    """Normalize the per-artist tag table: {norm_artist: {genres, era, note}}.
+
+    genres is permissive: a dict of levels (canonical), a bare string
+    (→ {"coarse": s}), or a list (first → coarse, second → fine).
+    """
+    out = {}
+    if not isinstance(raw, dict):
+        return out
+    for artist, t in raw.items():
+        if not isinstance(t, dict):
+            t = {"genres": t}
+        g = t.get("genres", {})
+        if isinstance(g, str):
+            g = {"coarse": g}
+        elif isinstance(g, (list, tuple)):
+            g = {lvl: str(v) for lvl, v in zip(_LEVELS, g) if v}
+        elif not isinstance(g, dict):
+            g = {}
+        genres = {lvl: str(g[lvl]).strip().lower()
+                  for lvl in _LEVELS if str(g.get(lvl) or "").strip()}
+        out[_normalize(artist)] = {
+            "genres": genres,
+            "era": str(t.get("era") or "").strip().lower(),
+            "note": str(t.get("note") or "").strip(),
+        }
+    return out
+
+
+def _norm_constraints(raw) -> list[dict]:
+    """Normalize the response-level constraint list. Unknown check names are
+    kept but flagged (scored as skipped, not failed)."""
+    known = {"min_distinct_genres", "max_single_genre_share",
+             "min_lane_share", "lane_balance", "min_distinct_decades"}
+    out = []
+    for c in raw or []:
+        if not isinstance(c, dict):
+            continue
+        check = str(c.get("check") or "").strip().lower()
+        if not check:
+            continue
+        try:
+            weight = float(c.get("weight", 1.0) or 1.0)
+        except (TypeError, ValueError):
+            weight = 1.0
+        out.append({
+            "check": check,
+            "known": check in known,
+            "value": c.get("value"),
+            "weight": max(0.0, weight),
+            "level": str(c.get("level") or "").strip().lower() or None,
+            "lane": str(c.get("lane") or "").strip().lower(),
+            "area": str(c.get("area") or "").strip().lower(),
+            "reason": str(c.get("reason") or "").strip(),
+        })
+    return out
+
+
+def _decade_of(year) -> str | None:
+    try:
+        y = int(year)
+    except (TypeError, ValueError):
+        return None
+    if not (1900 <= y <= 2100):
+        return None
+    return f"{(y // 10) * 10}s"
+
+
+def _rec_genre(rec, tags: dict, level: str) -> str | None:
+    """The rec's genre at `level` from the tag table, or None (untagged)."""
+    t = tags.get(_normalize(getattr(rec, "artist", "") or ""))
+    if not t:
+        return None
+    return t["genres"].get(level)
+
+
+def _rec_era(rec, tags: dict) -> str | None:
+    """Decade for a rec: Spotify release_year first, hand tag second."""
+    d = _decade_of(getattr(rec, "release_year", None))
+    if d:
+        return d
+    t = tags.get(_normalize(getattr(rec, "artist", "") or ""))
+    if t and t["era"]:
+        return t["era"]
+    return None
+
+
+def _lane_credit(rec, tags: dict, lane: str, level: str, area: str = "") -> float | None:
+    """Credit for one rec against min_lane_share.
+
+    1.0  — tagged with `lane` at the tested level (or, for level=fine,
+           tagged with `lane` at coarse)
+    0.5  — tagged in the constraint's `area` (the coarse genre adjacent to
+           the lane, e.g. lane "jazz hiphop" / area "hiphop")
+    0.0  — tagged, but outside the area entirely
+    None — untagged (neutral: excluded from the share)
+    """
+    t = tags.get(_normalize(getattr(rec, "artist", "") or ""))
+    if not t or not t["genres"]:
+        return None
+    genres = t["genres"]
+    if genres.get(level) == lane or (level == "fine" and genres.get("coarse") == lane):
+        return 1.0
+    if area and genres.get("coarse") == area:
+        return 0.5
+    return 0.0
+
+
+def score_response_structure(recs, golden: dict, fixture_names: list[str] | None = None) -> dict:
+    """
+    Score the RESPONSE as a whole against the golden set's optional structure
+    sections (tags / constraints / justification_keywords).
+
+    - `fixture_names` (normalized artist/album names from the fixture's
+      reviews) enables the "justification cites the fixture" signal.
+
+    Returns:
+      checks            — {name: {pass, observed, target, weight, reason}}
+      points / total    — weighted passes / weighted scoreable checks
+      score             — points / total (None if no scoreable checks)
+      lane_share        — observed min_lane_share value, if that check exists
+      lane_balance      — observed lane_balance value, if that check exists
+      tagged / total_recs / tag_coverage
+      just_hits / just_total / just_score     — keyword hits in rec `reason`s
+      just_fixture_hits — recs whose reason names something from the fixture
+    """
+    # Normalize defensively: works on raw file dicts or on load_golden_for output.
+    tags: dict = _norm_tags(golden.get("tags") or {})
+    constraints: list[dict] = _norm_constraints(golden.get("constraints") or [])
+    keywords: list[str] = [str(k).strip().lower()
+                           for k in (golden.get("justification_keywords") or [])
+                           if str(k).strip()]
+
+    total_recs = len(recs)
+    tagged = sum(1 for r in recs if _normalize(getattr(r, "artist", "") or "") in tags)
+
+    checks: dict[str, dict] = {}
+    used_names: set[str] = set()
+    points = total = 0.0
+    lane_share = None
+    lane_balance_score = None
+
+    for c in constraints:
+        name = c["check"]
+        i = 2
+        while name in used_names:
+            name = f"{c['check']}-{i}"
+            i += 1
+        used_names.add(name)
+        entry = {"pass": None, "observed": None, "target": c["value"],
+                 "weight": c["weight"], "reason": c["reason"]}
+
+        kind = c["check"]
+        graded = False
+        if not c["known"]:
+            entry["pass"] = None  # unknown check: skip, don't fail
+        elif c["value"] is None and kind != "lane_balance":
+            entry["pass"] = False  # known check, no target: can't score
+        else:
+            observed = None
+            if kind == "min_distinct_genres":
+                lvl = c["level"] or "coarse"
+                genres = [_rec_genre(r, tags, lvl) for r in recs]
+                genres = [g for g in genres if g]
+                if genres:
+                    observed = len(set(genres))
+                    entry["pass"] = observed >= c["value"]
+                else:
+                    entry["pass"] = None  # nothing tagged: unmeasurable, not failed
+            elif kind == "max_single_genre_share":
+                lvl = c["level"] or "coarse"
+                genres = [_rec_genre(r, tags, lvl) for r in recs]
+                genres = [g for g in genres if g]
+                if genres:
+                    top = max((sum(1 for g in genres if g == x) for x in set(genres)))
+                    observed = round(top / len(genres), 3)
+                    entry["pass"] = observed <= c["value"]
+                else:
+                    entry["pass"] = None  # nothing tagged: unmeasurable, not failed
+            elif kind == "min_lane_share":
+                lvl = c["level"] or "fine"
+                credits = [_lane_credit(r, tags, c["lane"], lvl, c.get("area") or "") for r in recs]
+                credits = [x for x in credits if x is not None]
+                if credits:
+                    observed = round(sum(credits) / len(credits), 3)
+                    entry["pass"] = observed >= c["value"]
+                    if c["value"] is not None:
+                        lane_share = observed
+                else:
+                    entry["pass"] = None  # nothing tagged: unmeasurable, not failed
+            elif kind == "min_distinct_decades":
+                eras = [_rec_era(r, tags) for r in recs]
+                eras = [e for e in eras if e]
+                if eras:
+                    observed = len(set(eras))
+                    entry["pass"] = observed >= c["value"]
+                else:
+                    entry["pass"] = None  # no known eras: unmeasurable, not failed
+            elif kind == "lane_balance":
+                # Per-rec NET lane alignment (graded, not binary): each TAGGED
+                # rec scores +1 in the lane, +0.5 in the adjacent area, −1
+                # tagged OUT of the area; untagged recs are ignored. The mean
+                # (∈ [−1, +1]) is mapped to [0, 1] and earns PARTIAL credit —
+                # an out-of-lane rec actively subtracts, which a share check
+                # can't express.
+                pts = []
+                for r in recs:
+                    credit = _lane_credit(r, tags, c["lane"], c["level"] or "fine",
+                                          c.get("area") or "")
+                    if credit is None:
+                        continue
+                    pts.append(1.0 if credit >= 1.0 else (0.5 if credit >= 0.5 else -1.0))
+                if pts:
+                    avg = sum(pts) / len(pts)                    # ∈ [−1, +1]
+                    observed = round((avg + 1.0) / 2.0, 3)       # ∈ [0, 1]
+                    thr = float(c["value"]) if c["value"] is not None else 0.5
+                    entry["pass"] = observed >= thr
+                    entry["detail"] = {
+                        "in_lane": sum(1 for p in pts if p == 1.0),
+                        "in_area": sum(1 for p in pts if p == 0.5),
+                        "out": sum(1 for p in pts if p < 0),
+                        "untagged": len(recs) - len(pts),
+                    }
+                    lane_balance_score = observed
+                    graded = True
+                else:
+                    entry["pass"] = None  # nothing tagged: unmeasurable, not failed
+                    entry["detail"] = {"untagged": len(recs)}
+            entry["observed"] = observed
+
+        if entry["pass"] is not None and c["weight"] > 0:
+            total += c["weight"]
+            if graded:
+                points += c["weight"] * (entry["observed"] or 0.0)  # partial credit
+            elif entry["pass"]:
+                points += c["weight"]
+        checks[name] = entry
+
+    # Justification keywords (informational — never folded into score/quality).
+    just_hits = just_fixture_hits = 0
+    if total_recs:
+        fx = [_normalize(n) for n in (fixture_names or []) if len(_normalize(n)) >= 3]
+        for r in recs:
+            reason = _normalize(getattr(r, "reason", "") or "")
+            if reason and any(k in reason for k in keywords):
+                just_hits += 1
+            if reason and fx and any(n in reason for n in fx):
+                just_fixture_hits += 1
+
+    return {
+        "checks": checks,
+        "points": round(points, 3),
+        "total": round(total, 3),
+        "score": round(points / total, 3) if total else None,
+        "lane_share": lane_share,
+        "lane_balance": lane_balance_score,
+        "tagged": tagged,
+        "total_recs": total_recs,
+        "tag_coverage": round(tagged / total_recs, 3) if total_recs else None,
+        "just_hits": just_hits,
+        "just_total": total_recs,
+        "just_score": round(just_hits / total_recs, 3) if total_recs else None,
+        "just_fixture_hits": just_fixture_hits,
     }
 
 
@@ -234,13 +528,25 @@ def append_label(
     note: str = "",
     reason: str = "",
     source: str = "interactive",
+    pool_score: int | None = None,
 ) -> Path:
     """
     Record one human verdict. label is "good"/"bad"/"unknown".
     Appends a JSON line to eval/golden/labeled.jsonl and returns its path.
+
+    `source` tags where the label came from: "interactive" (evaluate.py
+    --interactive), "pending-judge" (taste.py pending --judge), "score" /
+    "duel" (live per-rec grading in taste.py), "grade" (offline backfill,
+    taste.py grade).
+    `pool_score` (1–5) is stored when the label was made while judging a whole
+    scored/duelled pool — it enables the offline pool-vs-item consistency
+    check (humaneval.pool_item_consistency).
     """
     if label not in ("good", "bad", "unknown"):
         raise ValueError(f"label must be good/bad/unknown, got {label!r}")
+    if pool_score is not None and not (isinstance(pool_score, int)
+                                       and 1 <= pool_score <= 5):
+        raise ValueError(f"pool_score must be an int 1..5 or None, got {pool_score!r}")
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
     rec = {
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -254,6 +560,8 @@ def append_label(
         "reason": (reason or "").strip(),
         "source": source,
     }
+    if pool_score is not None:
+        rec["pool_score"] = pool_score
     with LABELED_LOG.open("a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return LABELED_LOG
@@ -301,3 +609,75 @@ def labeled_stats(model: str | None = None, profile: str | None = None,
         "total": good + bad + unknown,
         "good_rate": round(good / decisive, 3) if decisive else None,
     }
+
+
+def labeled_for(profile: str, artist: str, album: str = "") -> list[dict]:
+    """
+    Every labeled.jsonl row for this profile + artist (album must also match
+    when given). Matching is case/whitespace-insensitive. Used by the grade
+    flows to show — and default-skip — recs you already judged.
+    """
+    a = _normalize(artist)
+    al = _normalize(album)
+    out = []
+    for r in load_labeled():
+        if r.get("profile") != profile:
+            continue
+        if _normalize(r.get("artist", "")) != a:
+            continue
+        if al and _normalize(r.get("album", "")) != al:
+            continue
+        out.append(r)
+    return out
+
+
+def promotion_candidates(min_good: int = 2, min_bad: int = 2,
+                         max_per_list: int = 8) -> dict[str, dict]:
+    """
+    Artists you have now decisively labeled at least `min_good` (good) OR
+    `min_bad` (bad) times in labeled.jsonl but that are NOT yet in that
+    profile's golden file — i.e. ready to be promoted into the golden set
+    (`make harvest`).
+
+    Returns {profile: {"good": [entries], "bad": [entries]}} where each entry
+    is {"artist": str, "albums": [str], "good": int, "bad": int}, sorted by
+    (good - bad) desc then total labels desc, truncated to max_per_list.
+    An artist can appear in both lists (you've seen it both ways — review
+    before harvesting). Profiles with no candidates are omitted.
+    """
+    if not LABELED_LOG.exists():
+        return {}
+    per: dict[tuple, dict] = {}
+    for r in load_labeled():
+        lab = r.get("label")
+        if lab not in ("good", "bad"):
+            continue
+        prof = r.get("profile") or ""
+        if not prof:
+            continue
+        key = (prof, _normalize(r.get("artist", "")))
+        e = per.setdefault(key, {"artist": (r.get("artist") or "").strip(),
+                                 "albums": [], "good": 0, "bad": 0})
+        e[lab] += 1
+        al = (r.get("album") or "").strip()
+        if al and al not in e["albums"]:
+            e["albums"].append(al)
+
+    out: dict[str, dict] = {}
+    for (prof, _), e in per.items():
+        golden = load_golden_for(prof)
+        if golden and any(_normalize(g.get("artist", "")) == _normalize(e["artist"])
+                          for g in [*golden["good"], *golden["bad"]]):
+            continue
+        if e["good"] >= min_good:
+            out.setdefault(prof, {"good": [], "bad": []})
+            out[prof]["good"].append(e)
+        if e["bad"] >= min_bad:
+            out.setdefault(prof, {"good": [], "bad": []})
+            out[prof]["bad"].append(e)
+    for prof in out:
+        for kind in ("good", "bad"):
+            out[prof][kind].sort(key=lambda x: (-(x["good"] - x["bad"]),
+                                                -(x["good"] + x["bad"])))
+            out[prof][kind] = out[prof][kind][:max_per_list]
+    return out

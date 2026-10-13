@@ -1,8 +1,8 @@
 {
   "profile": "alt_rnb",
-  "description": "Alternative R&B core: dark, moody, sexy, vocal-forward, genre-blending R&B. Loves the artists who crossed lanes (electronic, hiphop, pop) without losing the romance. STRUCTURAL DRAFT — tweak the details.",
+  "description": "Alternative R&B core: dark, moody, sexy, vocal-forward, genre-blending R&B. Less about romance than mood — loves the artists who crossed lanes (electronic, hiphop, pop) without losing the darkness.",
   "source": "hand-written fixture",
-  "notes": "Focused single-lane profile: the test is subtlety WITHIN alt R&B (who keeps the dark/moody/sexy soul vs playlist-slop R&B-pop), plus one or two clean bridges out of the lane (The Weeknd's electronic side, Frank Ocean's experimental side). Edit freely — the golden set (eval/golden/alt_rnb.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "notes": "Focused single-lane profile: the test is subtlety WITHIN alt R&B (who keeps the dark/moody/sexy soul vs playlist-slop R&B-pop), plus one or two clean bridges out of the lane (The Weeknd's electronic side, Frank Ocean's experimental side). Reviewed with wyatt 2026-10-03: the axis is dark + sexy, not 'romantic'; the fixture is all-male (Weeknd, Ocean, Miguel) and the engine hasn't caught that yet. The golden set (eval/golden/alt_rnb.json) is the answer key and every entry in it must be inferable from these reviews.",
   "reviews": [
     {
       "catalog": { "type": "album", "name": "Kissland", "metadata": { "albumName": "Kissland", "artistName": "The Weeknd" } },

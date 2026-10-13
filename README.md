@@ -17,7 +17,7 @@ Currently supports **music (albums)**; other types are stubbed for the future.
 > (`eval/` — fixtures, golden sets with contrast pairs, live human judging,
 > Elo duels, static dashboard). Specific to me: the Firebase wiring
 > (`afrec/firebase.py`, `recommend.py`) is built for the AmongstFriends app,
-> and the `wyatt` fixture/golden is my own review data and taste. If you only
+> and the `full_spectrum` fixture/golden (replacing the old `wyatt` one) is my own review data and taste. If you only
 > read one thing, read [`eval/README.md`](eval/README.md).
 
 ---
@@ -132,11 +132,15 @@ that's the human-judging tier below.
 You author `eval/golden/<profile>.json`: artists/albums that are clearly a
 good or bad pick for that listener — including **contrast pairs** (two
 near-identical picks the listener splits on: the real taste test) and
-**novel** entries (original-but-right moves, scored separately). You do
-this **ahead of time, without seeing any model output** — that's what makes
-the leaderboard's `golden`/`pairs`/`novel` columns model-independent. Then
-`make eval` scores every model against it, automated.
-→ [how to write a golden set](eval/golden/README.md)
+**novel** entries (original-but-right moves, scored separately) — plus an
+optional **structure section** (`tags` + weighted `constraints` +
+`justification_keywords`) that checks whether the *shape* of the response
+mirrors the fixture (lane balance, genre/era spread). You do this **ahead of
+time, without seeing any model output** — that's what makes the leaderboard's
+`golden`/`pairs`/`novel`/`structure` columns model-independent. Then
+`make eval` scores every model against it, automated, and `make harvest`
+turns recurring untagged recs into your next tagging session.
+→ [how to write a golden set, step by step](eval/golden/README.md)
 
 ### Human, live — watch a model's output and judge it (the real signal)
 
@@ -161,6 +165,8 @@ per-model human-preference corpus (and raw material for future fine-tuning/DPO).
 |---|---|
 | Turn a real Firebase user into a profile (read-only fetch) | `make fixture FB_UID=<uid> NAME=alex` |
 | Exercise the harness with **no model at all** | `make mock` (then `--base-url http://localhost:11500`) |
+| See which untagged artists keep getting rec'd (tag work queue) | `make harvest` |
+| Get a sanitized MusicBrainz suggest for one of them (human review → your `tags`) | `make harvest-lookup ARTIST="…"` |
 | Sanity-check everything offline (no network, no model) | `make test` |
 
 ### See your results on a website
@@ -187,6 +193,15 @@ The leaderboard ranks models by:
   that separates taste-inference from "more of the same genre"
 - **`novel`** — how many *original-but-right* moves (adjacent scene,
   cross-genre bridge) it reached for, out of the ones you listed
+- **`structure`** — response-level: does the *shape* of the answer mirror the
+  fixture (genre/era spread, staying in-lane for single-lane profiles)?
+  Weighted constraint pass-rate from your golden set — incl. `lane_balance`,
+  where an off-lane rec *actively subtracts* (in-lane +1, adjacent +0.5,
+  out −1). Runs only over tagged artists; untagged ones are neutral and an
+  unmeasurable check is skipped, not failed — so `tag_coverage` is the health
+  number: when it drops, run `make harvest`. `just` = how often the written
+  reason carries taste signal. Schema + worked examples:
+  [`eval/golden/README.md`](eval/golden/README.md)
 
 The proxy metrics tell you the engine *works*; **your taste** (`label` / `score` /
 `duel` / golden sets) tells you it's *good*. The full explanation — and the
@@ -207,12 +222,15 @@ There are two things you can vary, and the harness keeps them separate:
   orchestrator/facade that dispatches to an agent and shares the
   Spotify-verify + reflection-retry machinery between them.
 
-Two agents ship in the box:
+Five agent versions ship in the box (four ids — a bare id resolves to the latest registered version):
 
 | tag | module | what it does | bet |
 |---|---|---|---|
 | `artist-then-album@v1` (default) | `agent_artist_then_album.py` | call 1: 8–10 new artists → call 2: one real album per artist | per-artist recall avoids hallucinated album/artist pairings |
 | `album-first@v1` | `agent_album_first.py` | one call: 8 complete real (artist, album) picks straight from the taste | taste lives in the *albums*; fewer calls, bolder, more specific picks |
+| `pool-map@v1` | `agent_pool_map.py` | call 0: analyze the user's OWN pool (lanes, range, fingerprint, plan) → call 1: album-first discovery guided by the map → adversarial critic pass → role-targeted retry for unfilled roles | the extra analysis calls buy personalization — recs fit *this* person's lanes/range/oddities, not a typical fan of their top genre. Degrades gracefully to unguided discovery if the map fails; a critic pass that rejects a majority of verified recs is treated as miscalibrated and ignored |
+| `pool-map@v1.1` | `agent_pool_map_v1_1.py` | same 4-call skeleton with the Oct-2 eval fixes: **grounded** map (lanes must rest on 2+ pool albums; small pools <8 get an explicit small-pool block) → **existence-first** discovery (plan counts are goals, not quotas) → **narrow** critic (LANE VOID + REPEL COLLISION only, cites numbered reviews) → role-retry with slack → deterministic artist dedupe → a **topup** call when the batch is still short | v1's 8B eval: 57% existence, a map that invented lanes, a critic disabled by its own leniency rules, short batches, `suggested_artists` never set. v1.1 fixes exactly those; v1 is untouched (published-version invariant) and both stay A/B-able via `make eval AGENT=pool-map@v1[.1]` |
+| `pool-map@v1.2` | `agent_pool_map_v1_2.py` | v1.1 with an **enriched map call**: each pool album's line carries the enrichment layer's catalog fact — `(catalog: 2005 · E.7 D.6 V.5 · 88bpm · Dmaj · jazz, hiphop)` — instead of a bare Spotify-looked-up year. Facts come from `Enricher.fact_map()` (shared cache; year + Last.fm tags + Musicae sound measurements); when facts are present the Spotify year lookups are skipped entirely, and the model is told to prefer tags over its own genre labels | the map call is the only call that *sees* the user's pool — it is where taste is read. Year + tags + sound measurements let a small model read the pool the way a human would ("this one's the dark one", "these three are all mid-90s") without inventing. A/B-able via `make eval AGENT=pool-map@v1.2 ENRICH=1`; without `ENRICH=1` (or without keys) it runs exactly as v1.1 |
 
 ```
 make agents                       # the reference table: every agent + what it does

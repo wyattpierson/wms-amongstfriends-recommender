@@ -10,3 +10,6 @@ venv/
 
 # Evaluation output (generated reports/leaderboards/CSVs)
 eval/output/
+
+# enrichment disk cache (regrowable via make enrich-backfill)
+afrec/cache/

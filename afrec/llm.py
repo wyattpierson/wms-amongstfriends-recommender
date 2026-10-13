@@ -30,6 +30,8 @@ from typing import Any
 
 import requests
 
+from . import model_options
+
 
 # ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -285,6 +287,11 @@ class LlamaCPPLM(BaseLLM):
         }
         if num_predict is not None:
             payload["max_tokens"] = num_predict
+        # Per-model options (afrec/model_options.json) — e.g. the
+        # chat_template_kwargs that keep thinking models (gemma-4, Qwen3)
+        # from spending the max_tokens budget on invisible reasoning_content.
+        # Applied to production and eval alike; explicit caller options win.
+        payload.update(model_options.options_for(self.model) or {})
         # Extra options map onto OpenAI-style completion params (e.g. top_p).
         payload.update(options or {})
 

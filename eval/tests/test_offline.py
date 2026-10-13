@@ -43,8 +43,11 @@ prof = evaluate.discover_profiles()[0]
 print("Using profile:", prof["name"])
 
 llm = FakeLLM()
+# Pin the agent: this FakeLLM speaks the artist-then-album prompt family, and
+# the selected agent can vary via AFREC_AGENT in .env.
+AGENT = "artist-then-album@v1"
 # Spotify off path
-outcome = pipeline.run(prof["reviews"], llm, verifier=None)
+outcome = pipeline.run(prof["reviews"], llm, verifier=None, agent=AGENT)
 m = evaluate.score_outcome(prof, outcome, False)
 assert outcome.ok, "pipeline should produce recs"
 assert len(outcome.recs) >= 6, f"expected several recs, got {len(outcome.recs)}"
@@ -54,7 +57,7 @@ print("no-spotify OK →", {k:m[k] for k in ("n_recs","n_new_artists","avg_confi
 # Spotify-on path: stub verifier that 'finds' everything → verified share high
 def fake_verifier(artist, album):
     return True, album, f"https://open.spotify.com/album/{artist}"
-outcome2 = pipeline.run(prof["reviews"], llm, verifier=fake_verifier)
+outcome2 = pipeline.run(prof["reviews"], llm, verifier=fake_verifier, agent=AGENT)
 m2 = evaluate.score_outcome(prof, outcome2, True)
 assert m2["verified"] == m2["n_recs"] and m2.get("verified_share") == 1.0
 print("spotify-on  OK →", {k:m2[k] for k in ("n_recs","verified","verified_share","quality") if k in m2})

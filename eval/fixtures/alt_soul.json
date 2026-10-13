@@ -1,0 +1,48 @@
+{
+  "profile": "alt_soul",
+  "description": "Voice-first heartbreak with a soul core, R&B-first: warm spiritual neo-soul (Lianne La Havas), dark sultry alt-R&B (Banks, Kali Uchis), personality alt-pop (Nilüfer Yanya), and aching indie heartbreak (Arlo Parks). Strong voices with range — some upbeat, plenty aching — all of them female singers.",
+  "source": "hand-written fixture",
+  "notes": "Single-lane-ish (rnb/soul family with two alt-pop bridges): the test is VOICE AND SONGCRAFT over production — the vocal up front, the song as the point — vs production-first R&B or heartbreak-pop. Overlaps the full_spectrum profile on Painless and Red Moon in Venus (same albums, different weight). Reviewed with wyatt 2026-10-03: the fixture is all-female voices and neither the recs nor the seed key caught that. The golden set (eval/golden/alt_soul.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Blood", "metadata": { "albumName": "Blood", "artistName": "Lianne La Havas" } },
+      "rating": 5,
+      "reviewId": "as-1",
+      "text": "This is what soul sounds like when it means something. Lianne's voice is warm and aching and the songs are about love and faith and heartbreak and none of it is polished to generic. Don't Go is the kind of song that stays in your chest. Her voice sounds like it could be from any decade, which is part of why it works — the most alive R&B in years, not close",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Painless", "metadata": { "albumName": "Painless", "artistName": "Nilüfer Yanya" } },
+      "rating": 5,
+      "reviewId": "as-2",
+      "text": "Pop that actually says something. Funny and sharp and then suddenly you're crying in the middle of a bop. The personality is in every track — this is one person with something to say, not a room of songwriters making a hit",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Godess", "metadata": { "albumName": "Godess", "artistName": "Banks" } },
+      "rating": 4,
+      "reviewId": "as-3",
+      "text": "Dark, sensual, a little dangerous. Banks' voice is the point of this album — the production wraps around it instead of burying it. It's the best modern R&B that isn't trying to be a hit. Sofia and Viva are the best songs of 2022, full stop",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Red Moon in Venus", "metadata": { "albumName": "Red Moon in Venus", "artistName": "Kali Uchis" } },
+      "rating": 5,
+      "reviewId": "as-4",
+      "text": "Pure mood. 70s soul filtered through a dream — sensual, cinematic, a little dangerous. The vocals are always up front and the production serves the voice. This is R&B that actually takes risks",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Collapsed in Sunbeams", "metadata": { "albumName": "Collapsed in Sunbeams", "artistName": "Arlo Parks" } },
+      "rating": 5,
+      "reviewId": "as-5",
+      "text": "Heartbreak that doesn't sound like heartbreak music. Arlo's voice is warm and specific and the songs are about the actual details of being in love and then not being in love. Hurt is one of the best heartbreak songs of the decade. It's indie and it's pop and it's soul and none of those words quite fit",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

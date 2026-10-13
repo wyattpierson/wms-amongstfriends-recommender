@@ -1,34 +1,191 @@
 {
   "profile": "jazzy_hiphop",
   "description": "Answer key for the jazzy_hiphop fixture: what's a good rec for THIS listener, with the subtleties that separate taste-inference from genre-echoing.",
-  "annotated_by": "wyatt (STRUCTURAL DRAFT — verify every entry against the fixture reviews)",
-  "annotated_at": "2026-07-14",
-
-  "notes": "Schema: entries go in good/bad as before. New optional fields per entry: 'tier' = 'expected' (default, in-lane) or 'novel' (an original move for this listener — adjacent scene/cross-genre bridge; must still be an artist the model plausibly knows); 'pair' = a contrast-pair name shared by one good-side and one bad-side entry that are near-identical except for the subtlety the listener splits on; 'reason' (or 'note') = WHY, citing the taste pattern the fixture reviews imply. RULE: every entry must be inferable from the fixture's reviews — the fixture is the exam, this file is the answer key. Pair scoring: +1 if the engine recs the good side only, 0 if neither, -1 if it recs the bad side (even alongside the good side). Novel scoring: how many novel good entries got hit (the 'originality' signal).",
-
+  "annotated_by": "wyatt (seed 2026-07-14; reviewed with engine author 2026-10-03 — fixture restored to 6 reviews, golden realigned)",
+  "annotated_at": "2026-10-03",
+  "notes": "Schema: entries go in good/bad as before. Optional fields per entry: 'tier' = 'expected' (in-lane) or 'novel' (an original move — adjacent scene/cross-genre bridge; must still be an artist the model plausibly knows); 'pair' = a contrast-pair name shared by one good-side and one bad-side entry that are near-identical except for the subtlety the listener splits on; 'reason' = WHY, citing the taste pattern the fixture reviews imply. RULE: every entry must be inferable from the fixture's reviews — the fixture is the exam, this file is the answer key. Pair scoring: +1 if the engine recs the good side only, 0 if neither, -1 if it recs the bad side (even alongside the good side). Novel scoring: how many novel good entries got hit (the 'originality' signal). 2026-10-03 session: jh-1/jh-4/jh-6 restored (Dilla 4★, Skyzoo 4★, Cosmogramma 2★); Madlib/Tomppabeats out; Kamasi downgraded to tag-only (user: 'okay fit, not great — it's just jazz'); The Roots + Kendrick added from user grading of real v1.1 recs.",
   "good": [
-    { "artist": "Nujabes", "tier": "expected", "pair": "canon-vs-filler",
-      "reason": "the canon itself — reviews jh-1/jh-2 are basically his name" },
-    { "artist": "J Dilla", "album": "Donuts", "tier": "expected",
-      "reason": "5-star review jh-1; 'unfiltered, real digging' is the whole persona" },
-    { "artist": "A Tribe Called Quest", "album": "The Low End Theory", "tier": "expected",
-      "reason": "reviewed 4★ in jh-5 — an 'expected' rec should at minimum know the input, but this one is already in the library so the engine should go NEW" },
-    { "artist": "Q-Tip", "tier": "expected",
-      "reason": "jh-3 names the production; in-lane canon" },
-    { "artist": "Madlib", "tier": "expected",
-      "reason": "jh-4: 'deep digging as a whole art form' — the digging pole (candidate good-side for a future digging-depth pair)" },
-    { "artist": "Kamasi Washington", "tier": "novel",
-      "reason": "bridge pole: modern jazz that keeps the head-nod; a step toward straight-ahead jazz without leaving the vibe" },
-    { "artist": "Robert Glasper", "album": "Black Radio", "tier": "novel",
-      "reason": "the cleanest out-of-lane bridge: jazz musicians + rap-adjacent, exactly 'what's next after jazz-hip-hop'" }
+    {
+      "artist": "Nujabes",
+      "tier": "expected",
+      "pair": "chill-vs-experimental",
+      "reason": "jh-2 5★ — the canon itself: 'perfect loops, real jazz chops under the rap'"
+    },
+    {
+      "artist": "J Dilla",
+      "album": "Donuts",
+      "tier": "expected",
+      "reason": "4★ review jh-1; 'real digging, unfiltered' is the whole persona"
+    },
+    {
+      "artist": "A Tribe Called Quest",
+      "album": "The Low End Theory",
+      "tier": "expected",
+      "reason": "reviewed 4★ in jh-5 — an 'expected' rec should at minimum know the input, but this one is already in the library so the engine should go NEW"
+    },
+    {
+      "artist": "Q-Tip",
+      "tier": "expected",
+      "reason": "jh-3 names the production (Common's Be is a Q-Tip record); in-lane canon"
+    },
+    {
+      "artist": "Skyzoo",
+      "tier": "expected",
+      "reason": "4★ review jh-4: chill, jazzy, unwind — the 'come home to' pole; digging past the canon"
+    },
+    {
+      "artist": "The Roots",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03 (Phrenology): live-band jazz-hip-hop in the jh-3/jh-5 vein — real players behind the rapper"
+    },
+    {
+      "artist": "Kendrick Lamar",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03: To Pimp A Butterfly and Untitled Unmastered are his ONLY jazz-fit albums — an okay fit, not perfect (jazzy, but not as chill/relaxing as the fixture's core); his other albums do not fit"
+    },
+    {
+      "artist": "Robert Glasper",
+      "album": "Black Radio",
+      "tier": "novel",
+      "reason": "the cleanest out-of-lane bridge: jazz musicians + rap-adjacent, exactly 'what's next after jazz-hip-hop'"
+    }
   ],
-
   "bad": [
-    { "artist": "Tomppabeats", "tier": "expected", "pair": "canon-vs-filler",
-      "reason": "reviewed 2★ in jh-6: 'playlist filler, no soul in the digging' — in-lane but the exact failure mode" },
-    { "artist": "Post Malone", "tier": "expected",
-      "reason": "out-of-lane entirely; a lazy 'rap' recommendation" },
-    { "artist": "Jack Harlow", "tier": "expected",
-      "reason": "mainstream melodic rap; zero jazz connection, the genre-centroid failure" }
+    {
+      "artist": "Flying Lotus",
+      "tier": "expected",
+      "pair": "chill-vs-experimental",
+      "reason": "reviewed 2★ in jh-6 (Cosmogramma): the classic over-recommendation — it's jazzy but it isn't hip-hop, and it's experimental in a way that never lets you relax"
+    },
+    {
+      "artist": "Post Malone",
+      "tier": "expected",
+      "reason": "out-of-lane entirely; a lazy 'rap' recommendation"
+    },
+    {
+      "artist": "Jack Harlow",
+      "tier": "expected",
+      "reason": "mainstream melodic rap; zero jazz connection, the genre-centroid failure"
+    }
+  ],
+  "tags": {
+    "nujabes": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2000s"
+    },
+    "j dilla": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2000s"
+    },
+    "a tribe called quest": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "1990s"
+    },
+    "q-tip": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "1990s"
+    },
+    "skyzoo": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2010s"
+    },
+    "the roots": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2000s"
+    },
+    "kendrick lamar": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2010s"
+    },
+    "common": {
+      "genres": {
+        "coarse": "hiphop",
+        "fine": "jazz hiphop"
+      },
+      "era": "2000s"
+    },
+    "post malone": {
+      "genres": {
+        "coarse": "pop"
+      },
+      "era": "2010s"
+    },
+    "jack harlow": {
+      "genres": {
+        "coarse": "pop"
+      },
+      "era": "2020s"
+    },
+    "flying lotus": {
+      "genres": {
+        "coarse": "jazz",
+        "fine": "experimental"
+      },
+      "era": "2010s",
+      "note": "user 2★ (jh-6): good music, not hip-hop, doesn't relax — the over-recommendation"
+    },
+    "kamasi washington": {
+      "genres": {
+        "coarse": "jazz"
+      },
+      "era": "2010s",
+      "note": "user 2026-10-03: okay fit, not great — it's just jazz, misses the hip-hop core of the fixture"
+    },
+    "robert glasper": {
+      "genres": {
+        "coarse": "jazz",
+        "fine": "jazz fusion"
+      },
+      "era": "2010s"
+    }
+  },
+  "constraints": [
+    {
+      "check": "lane_balance",
+      "lane": "jazz hiphop",
+      "area": "hiphop",
+      "level": "fine",
+      "value": 0.67,
+      "weight": 2,
+      "reason": "single-lane fixture — MIRROR rule: jazz-rooted hiphop = +1, adjacent hiphop area = +0.5, tagged anything else = −1 (an off-lane rec must actively cost); untagged recs ignored. value 0.67 = net in-lane skew required"
+    },
+    {
+      "check": "min_distinct_decades",
+      "value": 2,
+      "weight": 1,
+      "reason": "reviews span the 1990s (Tribe) and 2000s (Dilla/Nujabes/Common) — an all-one-decade answer ignores the era range the listener actually shows"
+    }
+  ],
+  "justification_keywords": [
+    "jazz",
+    "boom-bap",
+    "dig",
+    "sample",
+    "loop",
+    "head-nod",
+    "vibe",
+    "chill",
+    "relax"
   ]
 }

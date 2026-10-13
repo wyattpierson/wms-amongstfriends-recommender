@@ -13,11 +13,15 @@ PYTHON ?= python3
 else
 PYTHON ?= venv/bin/python
 endif
-PROFILE ?= jazzy_hiphop
+# NOTE: no PROFILE default — `eval` with no PROFILE must run ALL profiles.
+# Targets that need exactly one profile fall back to jazzy_hiphop per-target
+# (see fast/label/score) or require it explicitly (csv/duel).
 MODELS  ?=
 AGENT   ?=
 ROUNDS  ?= 2
 PORT    ?= 11500
+MIN_COUNT ?= 2
+ARTIST  ?=
 
 # Only append to MODELS / AGENT if they weren't given on the command line
 ifneq ($(MODELS),)
@@ -30,6 +34,9 @@ AGENT_OPT := --agent $(AGENT)
 else
 AGENT_OPT :=
 endif
+# ENRICH=1 offers the enrichment layer's catalog facts to agents that accept
+# them (pool-map@v1.2+): tags + sound measurements in the map call.
+ENRICH_OPT := $(if $(ENRICH),--enrich)
 
 .DEFAULT_GOAL := help
 
@@ -55,8 +62,17 @@ help:
 	@echo "  score   [PROFILE=... ROUNDS=2] rate whole responses 1-5"
 	@echo "  duel    PROFILE=... MODELS=a,b  models face off, you pick; feeds Elo"
 	@echo "  duels   DUELS='agents'|'models ...'|'status'  batched, resumable duel sessions"
+	@echo "  grade   [LIMIT=3 MODEL=..]     grade individual recs from saved score/duel records"
 	@echo "  stats                            current scores, win-rates, Elo, calibration"
 	@echo ""
+	@echo "  TAG HARVEST — understand + tag the recs the engine keeps making"
+	@echo "  harvest [--min-count 2]          offline: which untagged artists recur (runs_history)"
+	@echo "  harvest-lookup ARTIST='X' [SOURCE=auto|lastfm|musicbrainz]  sanitized suggest (human review)"
+	@echo ""
+	@echo "  ENRICHMENT — cache catalog facts (year/tags/measurements) for albums"
+	@echo "  enrich-status                    offline: cache coverage + days left"
+	@echo "  enrich-backfill [BUDGET=10 DELAY=1 DRY=1]  run whenever; free-tier paced"
+	@echo "  enrich-smoke                     1 Last.fm + 1 Spotify + 1 Musicae call (key check)"
 	@echo "  HUMAN, OFFLINE — write your taste down once per profile:"
 	@echo "    edit eval/golden/<profile>.json  (good/bad artists or albums;"
 	@echo "    the automated leaderboard scores every model against it)"
@@ -95,16 +111,16 @@ run:
 
 .PHONY: eval
 eval:
-	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) $(if $(PROFILE),--profile $(PROFILE))
+	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) $(ENRICH_OPT) $(if $(PROFILE),--profile $(PROFILE))
 
 .PHONY: fast
 fast:
-	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) --profile $(PROFILE) --no-spotify
+	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) $(ENRICH_OPT) --profile $(or $(PROFILE),jazzy_hiphop) --no-spotify
 
 .PHONY: csv
 csv:
-	@test -n "$(CSV)" || { echo "usage: make csv PROFILE=... CSV=out.csv"; exit 1; }
-	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) --profile $(PROFILE) --export-csv $(CSV)
+	@test -n "$(CSV)" && test -n "$(PROFILE)" || { echo "usage: make csv PROFILE=... CSV=out.csv"; exit 1; }
+	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) $(ENRICH_OPT) --profile $(PROFILE) --export-csv $(CSV)
 
 .PHONY: agents
 agents:
@@ -119,15 +135,15 @@ select:
 
 .PHONY: label
 label:
-	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) --interactive --profile $(PROFILE)
+	$(PYTHON) eval/evaluate.py $(MODELS_OPT) $(AGENT_OPT) $(ENRICH_OPT) --interactive --profile $(or $(PROFILE),jazzy_hiphop)
 
 .PHONY: score
 score:
-	$(PYTHON) eval/taste.py score $(MODELS_OPT) $(AGENT_OPT) --profile $(PROFILE) --rounds $(ROUNDS)
+	$(PYTHON) eval/taste.py score $(MODELS_OPT) $(AGENT_OPT) --profile $(or $(PROFILE),jazzy_hiphop) --rounds $(ROUNDS)
 
 .PHONY: duel
 duel:
-	@test -n "$(MODELS)" || { echo "usage: make duel PROFILE=... MODELS=modelA,modelB"; exit 1; }
+	@test -n "$(MODELS)" && test -n "$(PROFILE)" || { echo "usage: make duel PROFILE=... MODELS=modelA,modelB"; exit 1; }
 	$(PYTHON) eval/taste.py duel --models $(MODELS) $(AGENT_OPT) --profile $(PROFILE)
 
 # Batched, resumable duels (eval/duels.py). DUELS passes straight through:
@@ -135,15 +151,58 @@ duel:
 #   make duels DUELS='models --contestants a:agent@v1,b --profiles p1,p2'
 #   make duels DUELS='agents --dry-run'                        # preview the queue
 #   make duels DUELS='status'                                  # session progress
+#   make duels DUELS='agents --agent-a pool-map@v1.1 --agent-b pool-map@v1.2 \
+#                          --models Mistral-7B-Instruct-v0.3-Q8_0 --enrich'
+#     ^ --enrich offers the enrichment layer's catalog facts to agents that
+#       accept them (pool-map@v1.2+). Off by default: without it, v1.2 runs
+#       byte-identical to v1.1, so an A/B of the two is meaningless.
 # Quit mid-session (q / Ctrl-C) and re-run the same command to resume.
 .PHONY: duels
 duels:
 	@test -n "$(DUELS)" || { echo "usage: make duels DUELS='agents' | DUELS='models --contestants ...' | DUELS='status'"; exit 1; }
 	$(PYTHON) eval/duels.py $(DUELS)
 
+# Grade individual recs from SAVED score/duel records (offline backfill — no
+# model calls):   make grade                       # newest 10 records
+#                 make grade LIMIT=3 MODEL=mistral # a few, one model
+.PHONY: grade
+grade:
+	$(PYTHON) eval/taste.py grade $(if $(PROFILE),--profile $(PROFILE)) $(if $(MODEL),--model $(MODEL)) $(if $(LIMIT),--limit $(LIMIT))
+
 .PHONY: stats
 stats:
 	$(PYTHON) eval/taste.py stats
+
+# ── Tag harvest (eval/harvest.py) ─────────────────────────────────────────────
+# Offline consensus from eval/output/runs_history.jsonl (model self-reports,
+# display-only data) + MusicBrainz lookup (sanitized; NEVER fed to any model).
+.PHONY: harvest
+harvest:
+	$(PYTHON) eval/harvest.py report --min-count $(MIN_COUNT)
+
+.PHONY: harvest-lookup
+harvest-lookup:
+	@test -n "$(ARTIST)" || { echo "usage: make harvest-lookup ARTIST='Name Here' [SOURCE=auto|lastfm|musicbrainz]"; exit 1; }
+	$(PYTHON) eval/harvest.py lookup "$(ARTIST)" $(if $(SOURCE),--source $(SOURCE)) --suggest
+
+# ── Enrichment cache (eval/backfill.py) ───────────────────────────────────────
+# Free tier: Musicae 10 calls/day (5 albums/call) → run these whenever, at the
+# pace you choose. The cache makes every run strictly additive.
+#   make enrich-status                    offline: what's cached / what's missing
+#   make enrich-backfill                  Last.fm (free) + up to 10 Musicae calls
+#   make enrich-backfill BUDGET=3 DELAY=30
+#   make enrich-backfill DRY=1            print the plan, fire nothing
+.PHONY: enrich-status
+enrich-status:
+	$(PYTHON) eval/backfill.py status
+
+.PHONY: enrich-backfill
+enrich-backfill:
+	$(PYTHON) eval/backfill.py backfill $(if $(BUDGET),--budget $(BUDGET)) $(if $(DELAY),--delay $(DELAY)) $(if $(SOURCES),--sources $(SOURCES)) $(if $(DRY),--dry-run) $(if $(LASTFM_ONLY),--lastfm-only) $(if $(MUSICAE_ONLY),--musicae-only)
+
+.PHONY: enrich-smoke
+enrich-smoke:
+	$(PYTHON) eval/backfill.py smoke
 
 # ── Test cases ────────────────────────────────────────────────────────────────
 
@@ -168,3 +227,5 @@ test:
 	$(PYTHON) eval/tests/test_offline.py
 	$(PYTHON) eval/tests/test_spotify_existence.py
 	$(PYTHON) eval/tests/test_humaneval.py
+	$(PYTHON) eval/tests/test_goldenset.py
+	$(PYTHON) eval/tests/test_enrich.py

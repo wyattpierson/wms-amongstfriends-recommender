@@ -143,6 +143,50 @@ def main() -> int:
         check("union of scored+duelled models",
               he.all_models() == ["a", "b", "c", "cx", "cy"], str(he.all_models()))
 
+        print("─ pool_item_consistency()  (1–5 pool score vs per-rec verdicts)")
+        import goldenset as gs
+        gs.GOLDEN_DIR = tmp_golden
+        gs.LABELED_LOG = tmp_golden / "labeled.jsonl"
+        # Pool 4, but 2 of 3 judged recs were bad → mismatch.
+        he.append_score(profile="p4bad", model="a", score=4,
+                        recs=[{"artist": "Alfa"}, {"artist": "Bravo"}, {"artist": "Charlie"}])
+        for a, lab in (("Alfa", "bad"), ("Bravo", "bad"), ("Charlie", "good")):
+            gs.append_label(profile="p4bad", artist=a, label=lab, model="a",
+                            source="score", pool_score=4)
+        # Pool 4, 2 of 3 judged recs good → agrees.
+        he.append_score(profile="p4good", model="a", score=4,
+                        recs=[{"artist": "Delta"}, {"artist": "Echo"}, {"artist": "Foxtrot"}])
+        for a, lab in (("Delta", "good"), ("Echo", "good"), ("Foxtrot", "bad")):
+            gs.append_label(profile="p4good", artist=a, label=lab, model="a",
+                            source="score", pool_score=4)
+        # Pool 2, but 2 of 3 judged recs good → mismatch.
+        he.append_score(profile="p2good", model="b", score=2,
+                        recs=[{"artist": "Golf"}, {"artist": "Hotel"}, {"artist": "India"}])
+        for a, lab in (("Golf", "good"), ("Hotel", "good"), ("India", "bad")):
+            gs.append_label(profile="p2good", artist=a, label=lab, model="b",
+                            source="score", pool_score=2)
+        # Pool 3 → neutral, never a mismatch.
+        he.append_score(profile="p3", model="b", score=3,
+                        recs=[{"artist": "Juliet"}, {"artist": "Kilo"}, {"artist": "Lima"}])
+        for a, lab in (("Juliet", "bad"), ("Kilo", "bad"), ("Lima", "bad")):
+            gs.append_label(profile="p3", artist=a, label=lab, model="b",
+                            source="score", pool_score=3)
+        # Not enough decisive labels → excluded.
+        he.append_score(profile="pFew", model="b", score=1,
+                        recs=[{"artist": "Mike"}, {"artist": "Novak"}])
+        gs.append_label(profile="pFew", artist="Mike", label="bad", model="b",
+                        source="score", pool_score=1)
+
+        cons = {c["profile"]: c for c in he.pool_item_consistency()}
+        check("p4bad flagged mismatch", cons["p4bad"]["mismatch"] is True, str(cons.get("p4bad")))
+        check("p4good agrees", cons["p4good"]["mismatch"] is False, str(cons.get("p4good")))
+        check("p2good flagged mismatch", cons["p2good"]["mismatch"] is True, str(cons.get("p2good")))
+        check("neutral pool never mismatches", cons["p3"]["mismatch"] is False, str(cons.get("p3")))
+        check("good_frac p4bad = 1/3", abs(cons["p4bad"]["good_frac"] - 0.333) < 0.001, str(cons["p4bad"]))
+        check("under-labeled record excluded", "pFew" not in cons, str(list(cons)))
+        check("pool + n_decisive recorded",
+              cons["p4good"]["pool"] == 4 and cons["p4good"]["n_decisive"] == 3, str(cons["p4good"]))
+
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -1,0 +1,96 @@
+{
+  "profile": "full_spectrum",
+  "description": "The full-spectrum late-night listener: dark bouncy club (Baauer, Tokimonsta), personality-first alt-pop (Nilüfer Yanya, Lana Del Rey), risk-taking R&B/soul (Kali Uchis, Jamila Woods), latin with a point of view (Bad Bunny), and honest introspective hiphop (MAVI, Mac Miller, Lupe, Skyzoo & Apollo). STRUCTURAL DRAFT — tweak the details.",
+  "source": "hand-written fixture",
+  "notes": "Replaces the wyatt profile. Multi-lane by design: the test is whether the engine holds the RANGE (club + pop + rnb + latin + hiphop) without collapsing to one centroid, and whether it reads personality over polish. Edit freely — the golden set (eval/golden/full_spectrum.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "U", "metadata": { "albumName": "U", "artistName": "Baauer" } },
+      "rating": 5,
+      "reviewId": "fs-1",
+      "text": "Weirdest club music I know, and I don't know anyone else who makes it. It's dark and bouncy and a little aggressive but there's always a melody under it and it never stops feeling like an experiment. Harlem Shake became a meme but the actual album is a different thing — it's 25 minutes long and it sounds like it took 25 years. I don't get the drop-heavy festival edm that's all aggression and no melody, but this is the club music I actually want",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Laughing So Hard It Hurts", "metadata": { "albumName": "Laughing So Hard It Hurts", "artistName": "MAVI" } },
+      "rating": 5,
+      "reviewId": "fs-2",
+      "text": "MAVI is the real deal. It's just him and honest thoughts and the beats are simple but they work, and you can tell he's actually going through something instead of performing going through something. It's not polished and it's not trying to be a hit, and that's exactly why it works. This is the hiphop I actually want to listen to — it's about feeling things, not flexing",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Painless", "metadata": { "albumName": "Painless", "artistName": "Nilüfer Yanya" } },
+      "rating": 5,
+      "reviewId": "fs-3",
+      "text": "I didn't know who she was and now I can't stop listening. It's pop that actually says something — funny and sharp and then suddenly you're crying in the middle of a bop. Malibu Nights is perfect. The production is weird and the writing is weird in the same way, and it is NOT a generic pop record made to be a hit. You can feel the personality in every track",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Red Moon in Venus", "metadata": { "albumName": "Red Moon in Venus", "artistName": "Kali Uchis" } },
+      "rating": 5,
+      "reviewId": "fs-4",
+      "text": "This album is pure mood. It's like 70s soul filtered through a dream — sensual, cinematic, a little dangerous. Moondance and Hiss are the best songs of the year, full stop. The vocals are always up front and the production wraps around them instead of burying them. This is R&B that actually takes risks",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Water Made Us", "metadata": { "albumName": "Water Made Us", "artistName": "Jamila Woods" } },
+      "rating": 4,
+      "reviewId": "fs-5",
+      "text": "The most poetic record in my library, period. It's about Black womanhood and history and self-finding, and it sounds like jazz and hiphop and gospel all at once without ever turning into a lecture. Holocene is one of the most beautiful songs I've ever heard. It asks more of you than most albums, but when it pays off it pays off more than anything else",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "DeBÍ TiRAR MáS FOToS", "metadata": { "albumName": "DeBÍ TiRAR MáS FOToS", "artistName": "Bad Bunny" } },
+      "rating": 5,
+      "reviewId": "fs-6",
+      "text": "I was skeptical but this is the best thing he's ever done. It's dark and bouncy and the dembow bounce is hypnotic, and he's actually saying something — you can feel the Puerto Rican pride in it, it's not just a party record. Perro Negro is one of the best tracks of the year. The production is so good it doesn't sound like reggaeton, it sounds like the future",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Eternal Reverie", "metadata": { "albumName": "Eternal Reverie", "artistName": "Tokimonsta" } },
+      "rating": 4,
+      "reviewId": "fs-7",
+      "text": "This is not easy music and I don't think it's supposed to be. It's hard and dark and weird, the beats hit like a truck, but there's always something melodic or emotional under the weight. I listen to this when I want to feel something intense. Most electronic music is either aggressive or chill and this is both at once, which is rare",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Norman Fucking Rockwell!", "metadata": { "albumName": "Norman Fucking Rockwell!", "artistName": "Lana Del Rey" } },
+      "rating": 5,
+      "reviewId": "fs-8",
+      "text": "The best thing she's ever done, no debate. It's cinematic and aching and it's not about being cool, it's about heartbreak. White Dress is the song that broke me. It's rock and it's pop and it's heartbreak all at once, and the songs sound like they were written by someone who actually felt them instead of a room of songwriters. Ten years later it still hits harder than half the music coming out now",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Swimming", "metadata": { "albumName": "Swimming", "artistName": "Mac Miller" } },
+      "rating": 5,
+      "reviewId": "fs-9",
+      "text": "The healing album. Hazy, melodic, introspective, and you can tell he's processing things in real time. Good News and Jellyfish are just perfect — the beats are warm and the delivery is honest. It's hiphop but it's also just music about being human, and that's rarer than it should be. I've come back to this more times than I can count",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Drill Music in Zion", "metadata": { "albumName": "Drill Music in Zion", "artistName": "Lupe Fiasco" } },
+      "rating": 4,
+      "reviewId": "fs-10",
+      "text": "The most ambitious thing he's ever done, and it splits opinion, which means it's doing something. Clever without being try-hard, social commentary that actually has something to say, and he went and made drill his instrument and made it sound like HIM. It's not a perfect album but the good parts are better than 90% of what's coming out. He's the smartest rapper of his generation and this album proves it",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Luxury Tax", "metadata": { "albumName": "Luxury Tax", "artistName": "Skyzoo, Apollo Brown" } },
+      "rating": 4,
+      "reviewId": "fs-11",
+      "text": "Gritty, melodic, real. Underground hiphop at its best — the beats are dusty and the raps are emotional and you can tell they care more about the music than the marketing. Not a perfect album but the good parts are better than 90% of what's on the radio. I don't get the trap side of hiphop where the 808s drown out the words — this is the hiphop I actually want",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

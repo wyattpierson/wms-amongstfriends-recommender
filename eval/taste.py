@@ -26,16 +26,23 @@ Subcommands:
           listening. Plain call lists the queue; `pending --judge` walks it
           after you've listened and appends final good/bad verdicts.
 
-Records (append-only JSONL in eval/golden/, next to labeled.jsonl):
+  grade   OFFLINE BACKFILL: walk saved score/duel records (each stored its
+          full recs) and grade the individual recs good/bad/unsure. Recs you
+          already decisively labeled default to skip (--all re-labels).
+
+Records (append-only JSONL in eval/golden/):
   scores.jsonl  every 1–5 rating, with the full recs so you can revisit them
   duels.jsonl   every ranking, including each model's recs
+  (per-rec grades from every flow append to labeled.jsonl — the same corpus
+   golden sets are harvested from — tagged by `source`, and carrying the
+   pool score when graded off a scored/duelled pool)
 
 Typical use:
   # Rate one model's take on a profile (maybe 2 independent samples):
   python eval/taste.py score --profile jazzy_hiphop --models qwen2.5 --rounds 2
 
   # Three models, you pick the best:
-  python eval/taste.py duel --profile wyatt --models llama3,qwen2.5,mistral
+  python eval/taste.py duel --profile full_spectrum --models llama3,qwen2.5,mistral
 
   # Where do things stand?
   python eval/taste.py stats
@@ -57,8 +64,8 @@ sys.path.insert(0, str(HERE))
 
 import evaluate as ev                      # noqa: E402  (bootstrap + shared helpers)
 import goldenset as gs                     # noqa: E402  (labeled.jsonl — per-rec human corpus)
-import model_options as mopts              # noqa: E402  (per-model LLM options, e.g. Qwen no-think)
 import humaneval as he                     # noqa: E402  (score/duel storage + stats)
+from afrec import model_options as mopts   # noqa: E402  (per-model LLM options, e.g. Qwen no-think)
 from afrec import agents as afrec_agents   # noqa: E402  (versioned engine playbooks)
 from afrec.llm import LLMError             # noqa: E402
 
@@ -104,11 +111,13 @@ def _print_response(recs: list[dict], letter: str = "") -> None:
 
 
 def _generate(profile: dict, model: str, base_url: str, temperature: float,
-              verifier, agent: "afrec_agents.Agent") -> "ev.pipeline.RunOutcome":
+              verifier, agent: "afrec_agents.Agent",
+              enricher=None) -> "ev.pipeline.RunOutcome":
     return agent.run(
         profile["reviews"], ev.make_llm(model, base_url),
         verifier=verifier, temperature=temperature,
         extra_options=mopts.options_for(model),
+        enricher=enricher,
     )
 
 
@@ -145,6 +154,78 @@ def _read_score() -> int | None:
         if ans in ("1", "2", "3", "4", "5"):
             return int(ans)
         print("   (type 1–5, or g / u / b)")
+
+
+def _read_gbu(prompt: str = "   g=good  b=bad  u=unsure   (enter=skip, q to stop): ") -> str | None:
+    """Read a per-rec verdict. Returns 'good'/'bad'/'unsure'/'skip', or None to stop."""
+    while True:
+        ans = _ask(prompt, allow_eof=True).lower()
+        if ans in ("g", "good", "yes", "y"):
+            return "good"
+        if ans in ("b", "bad", "no", "n"):
+            return "bad"
+        if ans in ("u", "unsure", "meh"):
+            return "unsure"
+        if ans == "":
+            return "skip"
+        if ans in ("q", "quit", "stop"):
+            return None
+        print("   (g / b / u, enter to skip, q to stop)")
+
+
+def grade_recs(profile: str, model: str, recs: list[dict], *, agent: str = "",
+               source: str, pool_score: int | None = None,
+               skip_labeled: bool = False) -> dict | None:
+    """
+    Walk one model's recs and ask a per-rec verdict (good / bad / unsure).
+    Each verdict appends a row to labeled.jsonl — the same per-rec corpus the
+    golden sets are harvested from — tagged source=`source` ("score" | "duel"
+    | "grade") and, when known, the pool score (1–5) the recs came from, so
+    pool-vs-item consistency can be checked offline (he.pool_item_consistency).
+    'unsure' flows into the pending to-listen queue like any other u label.
+
+    skip_labeled=True (offline `grade` backfill) shows a hint for recs you
+    already decisively labeled in this profile and defaults them to skip —
+    type g/b/u to re-label anyway.
+
+    Returns {"good": n, "bad": n, "unsure": n, "skipped": n}, or None if the
+    human stopped (q) before any verdict.
+    """
+    counts = {"good": 0, "bad": 0, "unsure": 0, "skipped": 0}
+    for i, r in enumerate(recs, 1):
+        title = f"{r.get('artist') or '?'} — {r.get('album') or '(artist)'}"
+        if not r.get("verified"):
+            title += "   (⚠ unverified)"
+        print(f"\n  [{i}/{len(recs)}] {title}")
+        reason_lines = [ln.strip() for ln in (r.get("reason") or "").splitlines() if ln.strip()]
+        if reason_lines:
+            print(f"      {reason_lines[0]}")
+        if skip_labeled:
+            prev = [p for p in gs.labeled_for(profile, r.get("artist") or "",
+                                              r.get("album") or "")
+                    if p.get("label") in ("good", "bad")]
+            if prev:
+                print(f"      (already {prev[-1]['label']} in labeled.jsonl — enter to skip, g/b/u to re-label)")
+        verdict = _read_gbu()
+        if verdict is None:
+            break
+        if verdict == "skip":
+            counts["skipped"] += 1
+            continue
+        note = ""
+        if verdict in ("good", "bad"):
+            note = _ask("   note (optional, enter to skip): ", allow_eof=True)
+        gs.append_label(
+            profile=profile, artist=r.get("artist") or "", album=r.get("album") or "",
+            label="unknown" if verdict == "unsure" else verdict,   # corpus stores 'unknown'
+            model=model, agent=agent, note=note,
+            reason=r.get("reason") or "", source=source, pool_score=pool_score,
+        )
+        counts[verdict] += 1
+        print(f"      → {verdict} (saved)")
+    if not any(counts[k] for k in ("good", "bad", "unsure")):
+        return None
+    return counts
 
 
 def run_score(profile: dict, model: str, base_url: str, temperature: float,
@@ -184,6 +265,17 @@ def run_score(profile: dict, model: str, base_url: str, temperature: float,
             round=rnd,
         )
         print(f"   → {score} ({he.SCORE_LABELS[score]}, saved)")
+
+        ans = _ask("\n   Grade the individual recs? (Y/n): ", allow_eof=True).lower()
+        if ans in ("n", "no"):
+            print("   (skipped per-rec grading)")
+        else:
+            c = grade_recs(profile["name"], model, recs, agent=agent.tag,
+                           source="score", pool_score=score)
+            if c:
+                print(f"   per-rec: {c['good']} good · {c['bad']} bad · {c['unsure']} unsure · "
+                      f"{c['skipped']} skipped")
+
         s = he.score_stats(model=model)
         dist = " ".join(f"{k}:{v}" for k, v in s["distribution"].items() if v)
         print(f"   corpus for '{model}': n={s['n']}  avg={s['avg'] or 'n/a'}  "
@@ -291,6 +383,27 @@ def run_duel(profile: dict, models: list[str], base_url: str, temperature: float
             print(f"     {m:<24} elo {s['elo']:>6.1f}   "
                   f"w {s['wins']}/{s['wins'] + s['losses']}  duels {s['duels']}")
 
+    # Per-rec grading (optional): what was good/bad about the individual recs
+    # in the pools you just ranked? Feeds labeled.jsonl (source="duel").
+    if ranking:
+        winner = ranking[0]
+        ans = _ask(f"\nGrade the individual recs? (w = winner [{letters[winner]}], "
+                   f"letter = that pool, all, or n): ", allow_eof=True).lower()
+        if ans in ("w", "winner"):
+            groups = [winner]
+        elif ans in letters.values():
+            groups = [model_for_letter[ans]]
+        elif ans in ("all", "a"):
+            groups = order
+        else:
+            groups = []
+        for m in groups:
+            c = grade_recs(profile["name"], m, responses[m], agent=agent.tag,
+                           source="duel")
+            if c:
+                print(f"   per-rec for {m}: {c['good']} good · {c['bad']} bad · "
+                      f"{c['unsure']} unsure · {c['skipped']} skipped")
+
 
 # ── stats ─────────────────────────────────────────────────────────────────────
 
@@ -340,6 +453,18 @@ def run_stats() -> int:
                   f"{s['duels']:>5} {s['ties']:>5}")
         print()
 
+    agstats = he.agent_duel_stats()
+    if agstats:
+        print("  Agent ladders (same-model duels — the model never beats itself;")
+        print("  these roll up agent-vs-agent verdicts across models):")
+        print(f"    {'agent':<32} {'win%':>6} {'w-l':>7}  {'duels':>5} {'ties':>5}")
+        for a, s in sorted(agstats.items(),
+                           key=lambda kv: (-(kv[1]["win_rate"] or 0), -kv[1]["wins"])):
+            wr = f"{s['win_rate']:.0%}" if s["win_rate"] is not None else " n/a"
+            print(f"    {a:<32} {wr:>6} {str(s['wins']) + '-' + str(s['losses']):>7}  "
+                  f"{s['duels']:>5} {s['ties']:>5}")
+        print()
+
     cal_rows = []
     for m in models:
         c = he.calibration_stats(model=m)
@@ -377,7 +502,57 @@ def run_stats() -> int:
                     print(f"      you said {name:<8} (r{lo}–{hi})  → model claimed {sum(vals) / len(vals):.2f} avg  ({len(vals)} responses){flag}")
         print()
 
-    pending_n = sum(1 for r in gs.load_labeled() if r.get("label") == "unknown")
+    # Per-rec item verdicts (labeled.jsonl): what was good/bad about the
+    # individual recs, from every source (interactive, pending-judge, score,
+    # duel, grade) — the corpus the golden sets are harvested from.
+    labeled = gs.load_labeled()
+    ls = gs.labeled_stats()
+    print("  ITEM VERDICTS  (per-rec good/bad — all sources)")
+    if ls["total"]:
+        gr = f"{ls['good_rate']:.0%}" if ls["good_rate"] is not None else "n/a"
+        print(f"    n={ls['total']}  good_rate={gr}  ({ls['good']} good · {ls['bad']} bad · "
+              f"{ls['unknown']} unsure)")
+        by_src: dict[str, list[str]] = {}
+        for r in labeled:
+            by_src.setdefault(r.get("source") or "?", []).append(r.get("label"))
+        for src in sorted(by_src):
+            labs = by_src[src]
+            g, b, u = labs.count("good"), labs.count("bad"), labs.count("unknown")
+            dec = g + b
+            rate = f"good_rate={g / dec:.0%}" if dec else "no decisive yet"
+            print(f"      {src:<13} n={len(labs):<3} {rate}   ({g} good · {b} bad · {u} unsure)")
+        # Pool-vs-item consistency: does your 1–5 pool score match the recs you judged?
+        cons = he.pool_item_consistency()
+        if cons:
+            print("\n    POOL vs ITEM  (your 1–5 score vs the per-rec verdicts on those same recs)")
+            agg: dict[str, list[dict]] = {}
+            for c in cons:
+                bucket = "bad" if c["pool"] <= 2 else "neutral" if c["pool"] == 3 else "good"
+                agg.setdefault(bucket, []).append(c)
+            for bucket in ("bad", "neutral", "good"):
+                rows_ = agg.get(bucket)
+                if not rows_:
+                    continue
+                mm = sum(1 for c in rows_ if c["mismatch"])
+                print(f"      pool {bucket:<8} n={len(rows_):<3} mismatched={mm}")
+            if any(c["mismatch"] for c in cons):
+                print("      ⚠ mismatch = pool rated 4–5 but <50% of judged recs were good (or 1–2 but >50%)")
+        # Golden-set promotion candidates: enough decisive labels, not yet in the file.
+        promo = gs.promotion_candidates()
+        if promo:
+            print("\n    GOLDEN-SET PROMOTION CANDIDATES  (enough labels, not yet in the golden file)")
+            for prof in sorted(promo):
+                for kind in ("good", "bad"):
+                    for e in promo[prof][kind]:
+                        albums = f"  [{', '.join(e['albums'][:2])}]" if e["albums"] else ""
+                        print(f"      {prof:<16} {kind:<5} {e['artist']:<32} "
+                              f"({e['good']} good / {e['bad']} bad){albums}")
+            print("      → `make harvest` folds your verdicts into the golden sets")
+        print()
+    else:
+        print("    (no per-rec labels yet — judge recs via score/duel/grade, or evaluate.py --interactive)\n")
+
+    pending_n = sum(1 for r in labeled if r.get("label") == "unknown")
     if pending_n:
         print(f"  Pending 'unsure' labels (to-listen queue): {pending_n} — see `taste.py pending`\n")
     print(f"\n  Records:  {he.SCORES_LOG}\n            {he.DUELS_LOG}\n")
@@ -464,6 +639,89 @@ def run_pending(args) -> int:
     return 0
 
 
+# ── grade (offline backfill) ──────────────────────────────────────────────────
+
+def _grade_records(args) -> list[dict]:
+    """Flatten saved score/duel records into gradeable units, newest first."""
+    records = []
+    if "score" in args.kinds:
+        for r in he.load_scores():
+            if not r.get("recs"):
+                continue
+            model = r.get("model") or ""
+            if args.model and args.model.lower() not in model.lower():
+                continue
+            if args.profile and r.get("profile") not in args.profile:
+                continue
+            records.append({"ts": r.get("ts", ""), "kind": "score",
+                            "profile": r.get("profile") or "", "model": model,
+                            "agent": r.get("agent") or "", "pool": r.get("score"),
+                            "recs": r["recs"]})
+    if "duel" in args.kinds:
+        for d in he.load_duels():
+            if args.profile and d.get("profile") not in args.profile:
+                continue
+            for label, recs in (d.get("recs_by_model") or {}).items():
+                if not recs:
+                    continue
+                if " [" in label:          # agent-duel label: "Model [agent@v1]"
+                    model, agent = label.split(" [", 1)
+                    agent = agent.rsplit("]", 1)[0]
+                else:
+                    model, agent = label, d.get("agent") or ""
+                if args.model and args.model.lower() not in model.lower():
+                    continue
+                records.append({"ts": d.get("ts", ""), "kind": "duel",
+                                "profile": d.get("profile") or "", "model": model,
+                                "agent": agent, "pool": None, "recs": recs})
+    records.sort(key=lambda r: r["ts"], reverse=True)
+    return records[:args.limit]
+
+
+def run_grade(args) -> int:
+    """
+    Offline backfill: walk saved score/duel records (each stored its full
+    recs) and grade the individual recs good/bad/unsure into labeled.jsonl.
+    Recs you already decisively labeled in that profile default to skip
+    (type g/b/u to re-label); --all walks everything.
+    """
+    kinds = {k.strip().lower() for k in args.grade_from.split(",") if k.strip()}
+    unknown = kinds - {"score", "duel"}
+    if unknown:
+        raise SystemExit(f"❌ unknown --from kind(s): {', '.join(sorted(unknown))} "
+                         "(expected score and/or duel)")
+    args.kinds = kinds
+    records = _grade_records(args)
+    if not records:
+        print("No matching records in scores.jsonl / duels.jsonl (nothing to grade yet).")
+        return 1
+    print(f"\n🔎 GRADING {len(records)} saved record(s) — newest first "
+          f"(already-judged recs default to skip; --all re-labels)")
+    totals = {"good": 0, "bad": 0, "unsure": 0, "skipped": 0}
+    for i, r in enumerate(records, 1):
+        pool = f" · pool {r['pool']}/5" if r["pool"] else ""
+        print(f"\n{'═' * 62}\n  record {i}/{len(records)} · {r['kind']} · {r['profile']} · "
+              f"{r['model']} · {str(r['ts'])[:10]}{pool}")
+        ans = _ask(f"  grade these {len(r['recs'])} recs? (enter = yes, s = skip, q = stop): ",
+                   allow_eof=True).lower()
+        if ans == "q":
+            break
+        if ans == "s":
+            continue
+        c = grade_recs(r["profile"], r["model"], r["recs"], agent=r["agent"],
+                       source="grade", pool_score=r["pool"],
+                       skip_labeled=not args.all)
+        if c:
+            for k in totals:
+                totals[k] += c[k]
+    n = totals["good"] + totals["bad"]
+    rate = f"   (good_rate over new decisive: {totals['good'] / n:.0%})" if n else ""
+    print(f"\n✅ Done. {totals['good']} good · {totals['bad']} bad · "
+          f"{totals['unsure']} unsure · {totals['skipped']} skipped{rate}")
+    print("   standings: python eval/taste.py stats")
+    return 0
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -498,9 +756,19 @@ def main() -> int:
                    help="list (or with --judge, re-judge) 'unsure' labels — the to-listen queue")
     p_pending.add_argument("--judge", action="store_true",
                            help="walk the queue and append final good/bad verdicts")
+    p_grade = sub.add_parser("grade", parents=[common],
+                   help="grade recs from saved score/duel records (offline backfill)")
+    p_grade.add_argument("--from", dest="grade_from", default="score,duel",
+                         help="record kinds to backfill from (default: score,duel)")
+    p_grade.add_argument("--model", default=None,
+                         help="only records whose model name contains this substring")
+    p_grade.add_argument("--limit", type=int, default=10,
+                         help="max records to walk (default 10)")
+    p_grade.add_argument("--all", action="store_true",
+                         help="don't default-skip recs already decisively labeled")
     args = parser.parse_args()
 
-    if args.cmd in (None, "score", "duel") and not sys.stdin.isatty():
+    if args.cmd in (None, "score", "duel", "grade") and not sys.stdin.isatty():
         print("⚠️  stdin is not a TTY — use a real terminal for interactive judging "
               "(or pipe answers, e.g. `printf '4\\n\\n' | ...`).", file=sys.stderr)
 
@@ -509,6 +777,9 @@ def main() -> int:
 
     if args.cmd == "pending":   # reads labeled.jsonl only — no models/profiles needed
         return run_pending(args)
+
+    if args.cmd == "grade":     # reads scores.jsonl/duels.jsonl only — no generation
+        return run_grade(args)
 
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     if not models:

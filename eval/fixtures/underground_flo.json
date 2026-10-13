@@ -1,0 +1,56 @@
+{
+  "profile": "underground_flo",
+  "description": "Indie-conscious hiphop with a jazzy, lowkey vibe: introspective, melodic, mostly peaceful raps that hit when you pay attention. Chicago orbit (Saba, Skyzoo), honest processing (MAVI, Mac Miller), technical storytelling (Lupe), a psychedelic curveball (Zelooperz). The artists are mostly not famous.",
+  "source": "hand-written fixture",
+  "notes": "Single-lane profile (hiphop) where the test is DEPTH WITHIN the lane: songwriting, honesty, specificity vs trap/playlist hiphop that sounds the same. Overlaps the full_spectrum profile on MAVI, Swimming, and a Lupe album (different album, different read). Reviewed with wyatt 2026-10-03: taste confirmed (indie-conscious, lowkey, melodic, peaceful, mostly not famous). The golden set (eval/golden/underground_flo.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "reviews": [
+    {
+      "catalog": { "type": "album", "name": "Peddler Themes", "metadata": { "albumName": "Peddler Themes", "artistName": "Skyzoo" } },
+      "rating": 5,
+      "reviewId": "uf-1",
+      "text": "Skyzoo is one of the best rappers I know and this album is the proof. The raps are introspective and specific — he's actually working through his life, not performing working through it. The beats are dusty and warm and the delivery is emotional and honest. It's not a hit-single album, it's a diary, and that's exactly why I keep coming back to it",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Care for Me", "metadata": { "albumName": "Care for Me", "artistName": "Saba" } },
+      "rating": 5,
+      "reviewId": "uf-2",
+      "text": "Saba is a storyteller. This album is him working through heartbreak and growth and Chicago, and every song feels like a scene from his actual life. Ride the Beat is the best track on it — warm beat, raw raps. It's the most honest hiphop of the 2010s and it's not close",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Swimming", "metadata": { "albumName": "Swimming", "artistName": "Mac Miller" } },
+      "rating": 5,
+      "reviewId": "uf-3",
+      "text": "The healing album. Hazy, melodic, and you can tell he's processing in real time. Good News is just perfect. It's hiphop that's mostly about being human, and that's the rare part",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Samurai", "metadata": { "albumName": "Samurai", "artistName": "Lupe Fiasco" } },
+      "rating": 4,
+      "reviewId": "uf-4",
+      "text": "Lupe always has something to say, and this is him saying it about the world he actually lives in. It's conscious hiphop without turning into a lecture — the social commentary is real and the raps are still technical. Not a perfect album, but the good parts are some of the most important hiphop of the decade",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Dear Psilocybin", "metadata": { "albumName": "Dear Psilocybin", "artistName": "Zelooperz" } },
+      "rating": 5,
+      "reviewId": "uf-5",
+      "text": "Zelooperz is doing something nobody else is doing. It's hiphop but it's also psychedelic and it's also just music about the inside of your head. The beats are weird and warm and the raps are introspective and melodic. It's the weirdest album in my hiphop library and I mean that as the highest compliment — the weird ones are always the real ones",
+      "userId": "eval",
+      "groupId": null
+    },
+    {
+      "catalog": { "type": "album", "name": "Laughing So Hard It Hurts", "metadata": { "albumName": "Laughing So Hard It Hurts", "artistName": "MAVI" } },
+      "rating": 4,
+      "reviewId": "uf-6",
+      "text": "MAVI is the real deal. Simple beats, honest thoughts, and you can tell he's going through something instead of performing going through something. Not polished, and that's exactly why it works. I don't get the trap side of hiphop where the 808s drown out the words — this is the hiphop I actually want to listen to",
+      "userId": "eval",
+      "groupId": null
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "profile": "underground_flo",
+  "description": "Answer key (SEED) for the underground_flo fixture: what's a good rec for THIS listener (introspective, specific, weird-over-smooth) vs a lazy 'hiphop' echo. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed 2026-10-01; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "SEED — single-lane (hiphop) profile; the teeth are WITHIN the lane (songwriting/honesty vs trap-slop) plus one clean out-lane move. Every entry is inferable from the fixture reviews. Judge the engine with `evaluate.py --interactive --profile underground_flo` and promote.",
+  "good": [
+    {
+      "artist": "Earl Sweatshirt",
+      "tier": "expected",
+      "reason": "uf-1/uf-3/uf-6: introspective, specific, unpolished hiphop that's about feeling things — the canonical next step in this exact lane"
+    },
+    {
+      "artist": "Cordae",
+      "tier": "expected",
+      "reason": "uf-2/uf-4: technical raps with real content and emotional delivery — the storytelling pole of the profile"
+    },
+    {
+      "artist": "Danny Brown",
+      "tier": "novel",
+      "reason": "uf-5: 'the weird ones are always the real ones' — Danny Brown is the canonical weird hiphop; the cleanest out-of-comfort-zone move"
+    },
+    {
+      "artist": "Solange",
+      "tier": "novel",
+      "pair": "vibe-vs-association",
+      "reason": "user-graded good 2026-10-03 (A Seat at the Table): not rap, but the melodic, peaceful, soulful vibe carries across — the one out-of-lane bridge this listener approves"
+    }
+  ],
+  "bad": [
+    {
+      "artist": "Playboi Carti",
+      "tier": "expected",
+      "pair": "story-vs-bounce",
+      "reason": "uf-6: 'I don't get the trap side of hiphop where the 808s drown out the words' — the trap centroid is exactly what the profile rules out"
+    },
+    {
+      "artist": "Lil Uzi Vert",
+      "tier": "expected",
+      "reason": "the lazy 'melodic hiphop' read of uf-3 — but the reviews are about what the raps SAY (honest, specific, a diary), not just that they're melodic"
+    },
+    {
+      "artist": "Flying Lotus",
+      "tier": "expected",
+      "pair": "vibe-vs-association",
+      "reason": "user 2026-10-03: you can associate him via Mac Miller (uf-3), but it 'feels wrong here' — instrumental/experimental, not the vibe of this fixture"
+    },
+    {
+      "artist": "Thundercat",
+      "tier": "expected",
+      "reason": "user 2026-10-03: same Mac-Miller-association trap as Flying Lotus — adjacent names, but it doesn't follow from the fixture"
+    },
+    {
+      "artist": "Kamasi Washington",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'definitely wrong — the listener might like it, but it doesn't make sense from this fixture' (it's just jazz)"
+    }
+  ],
+
+  "tags": {
+    "skyzoo":       { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "saba":         { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "mac miller":   { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "lupe fiasco":  { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "zelooperz":    { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "mavi":         { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "earl sweatshirt": { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "cordae":       { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "danny brown":  { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "playboi carti": { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "lil uzi vert": { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "drake":         { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "kendrick lamar": { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: okay, not great — even his most jazzy (TPAB) is more aggressive/intense than this peaceful fixture" },
+    "j. cole":       { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: okay, not great — more central than the fixture; some albums fit better than others, can skew pop" },
+    "solange":       { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user-graded good 2026-10-03 — the approved out-of-lane bridge" },
+    "flying lotus":  { "genres": { "coarse": "jazz", "fine": "experimental" }, "era": "2010s",
+      "note": "user 2026-10-03: Mac Miller association, feels wrong here" },
+    "thundercat":    { "genres": { "coarse": "jazz", "fine": "jazz fusion" }, "era": "2010s",
+      "note": "user 2026-10-03: Mac Miller association, feels wrong here" },
+    "kamasi washington": { "genres": { "coarse": "jazz" }, "era": "2010s",
+      "note": "user 2026-10-03: definitely wrong — doesn't make sense from this fixture" },
+    "travis scott": { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "the weeknd":    { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "sza":           { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "doja cat":      { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "billie eilish": { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "taylor swift": { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "lorde":         { "genres": { "coarse": "pop" }, "era": "2010s" }
+  },
+
+  "constraints": [
+    { "check": "lane_balance", "lane": "hiphop", "area": "rnb", "level": "coarse", "value": 0.5, "weight": 2,
+      "reason": "all six reviews are hiphop (uf-1…uf-6): hiphop = +1, adjacent rnb = +0.5, tagged pop/other = −1; untagged ignored. An all-R&B or all-rock answer ignores the profile entirely" },
+    { "check": "min_distinct_decades", "value": 2, "weight": 1,
+      "reason": "the 5★s span the 2017–18 wave (Peddler Themes, Care for Me, Swimming) AND 2021 (Samurai, Dear Psilocybin) and uf-2 crowns the 2010s 'most honest hiphop, not close' — an all-2020s answer ignores the wave this listener anchors to" }
+  ],
+
+  "justification_keywords": ["introspective", "storytelling", "honest", "weird", "melodic", "real", "vibe", "peaceful"]
+}

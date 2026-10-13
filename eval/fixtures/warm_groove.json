@@ -1,8 +1,8 @@
 {
   "profile": "warm_groove",
-  "description": "Loves the warm, groove-first, lane-crossing corner: bouncy, meticulously produced records (Kaytranada), hazy neo-soul (The Internet), lyric-first art rap (Noname), and literary hiphop (Jamila Woods). STRUCTURAL DRAFT — tweak the details.",
+  "description": "Loves the warm, groove-first, lane-crossing corner: bouncy, meticulously produced records (Kaytranada), hazy neo-soul (The Internet), lyric-first art rap (Noname), and literary hiphop (Jamila Woods). Playful and light — dance-y, not full dance music — with a consistent bouncy melody even when the lyrics get serious.",
   "source": "hand-written fixture",
-  "notes": "Focused profile: four loved albums spanning electro-funk, neo-soul, and art-rap lanes. The test is whether the engine can hold that range (club-ready grooves AND word-driven art rap) without collapsing to one centroid. Edit freely — the golden set (eval/golden/warm_groove.json) is the answer key and every entry in it must be inferable from these reviews.",
+  "notes": "Focused profile: four loved albums spanning electro-funk, neo-soul, and art-rap lanes. The test is whether the engine can hold that range (grooves AND word-driven art rap) without collapsing to one centroid — and whether it stays BRIGHT: the user's core axis (2026-10-03) is warm/bouncy/playful, and dark art-rap (Danny Brown, Vince Staples) is a bad fit despite the craft. Reviewed with wyatt 2026-10-03. The golden set (eval/golden/warm_groove.json) is the answer key.",
   "reviews": [
     {
       "catalog": { "type": "album", "name": "99.9%", "metadata": { "albumName": "99.9%", "artistName": "Kaytranada" } },

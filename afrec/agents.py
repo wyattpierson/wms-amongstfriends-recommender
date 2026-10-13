@@ -35,6 +35,7 @@ from .agent_registry import (
 # Each module self-registers on import. Order here = registration order =
 # what "latest version of a bare id" means.
 from . import agent_artist_then_album, agent_album_first  # noqa: E402,F401
+from . import agent_pool_map, agent_pool_map_v1_1, agent_pool_map_v1_2, agent_pool_map_v2_0  # noqa: E402,F401  (order = "latest" for bare ids)
 
 
 def render_table() -> str:

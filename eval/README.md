@@ -29,12 +29,19 @@ eval/
   make_fixture.py          BUILD a test case from a REAL user — fetches their Firebase reviews,
                            keeps only the music/album ones (same source recommend.py reads),
                            saves eval/fixtures/<profile>.json (+ empty golden seed); --force to re-fetch
+  harvest.py               TAG HARVEST — offline consensus report of recurring untagged
+                           artists (from runs_history.jsonl) + MusicBrainz lookup (sanitized,
+                           human-review only — never fed to a model). `make harvest`
   tests/
     test_agents.py             agent registry + run stamping, fully offline
     test_offline.py            pipeline + harness, no Spotify, no network
     test_spotify_existence.py  proves the "does it exist on Spotify" metric is honest
     test_humaneval.py          scores/duels/Elo records, fully offline
+    test_structure.py          response-structure scoring (tags/constraints/lane_balance), offline
+    test_harvest.py            harvest sanitization + consensus, offline
   output/                generated (gitignored): leaderboards, TSVs, per-model JSON, CSVs
+  output/runs_history.jsonl  append-only per-rec history (model self-reported genre/era) —
+                           the raw material for `harvest.py`; the site's "Recs" tab reads it
   output/duel_sessions/    duel session state (resume points for duels.py — safe to delete; duels.jsonl is the record)
 ```
 
@@ -112,9 +119,13 @@ and accumulates into a no-metrics "which model do I actually prefer" leaderboard
 
 ## Quick start
 
-Note: with llama-server the `--models` name is just a label for the leaderboards
-(the server serves whatever GGUF you loaded). Swap GGUFs, re-run, and the
-leaderboard tracks each model by the name you gave it.
+Note: with llama-server the `--models` name is **sent to the server as the
+`model` field and must match a loaded model's `id` or alias** — an unknown
+name gets HTTP 400 and the run scores 0 recs (status still says "ok"; the
+`❌`/`0 recs` row is the signal). Check what's loaded with
+`curl -s localhost:8092/v1/models | grep '"id"'`. Swap GGUFs → swap the name
+→ re-run; the leaderboard tracks each model by the name you gave it.
+(With Ollama the name is likewise the real model name, pulled if missing.)
 
 ### Automated (no human in the loop)
 
@@ -145,11 +156,11 @@ python eval/taste.py score --profile jazzy_hiphop --models my-model --rounds 2
 
 # Duel two or more models on the same profile — you pick the best
 # (e.g. two llama-servers on different ports via separate runs, or Ollama names):
-python eval/taste.py duel --profile wyatt --models modelA,modelB
+python eval/taste.py duel --profile full_spectrum --models modelA,modelB
 
 # Duel a WHOLE MATRIX in one resumable session (duels.py):
 python eval/duels.py agents                # agent showdown: each model vs its own other playbook, all profiles
-python eval/duels.py models --contestants modelA:album-first@v1,modelB --profiles wyatt,jazzy_hiphop
+python eval/duels.py models --contestants modelA:album-first@v1,modelB --profiles full_spectrum,jazzy_hiphop
 python eval/duels.py status                # progress across all sessions
 # Quit anytime (q / Ctrl-C); re-run the same command to pick up where you left off.
 
@@ -178,6 +189,22 @@ python eval/tests/test_spotify_existence.py
 python eval/tests/test_humaneval.py
 ```
 
+### Keep the tags from rotting (tag harvest)
+
+The structure score only runs over artists you've tagged — when the engine
+starts recommending novel artists, `tag_coverage` in the TSV drops (and the
+leaderboard flags it). That's the work queue, not a bug:
+
+```bash
+make harvest                 # who keeps coming up untagged? (offline consensus)
+make harvest-lookup ARTIST="…"   # MusicBrainz suggest for one of them
+```
+
+The lookup output is a **sanitized human-review artifact** (whitelisted fields
+only) — you decide whether it lands in `golden/<profile>.json` `tags`. Nothing
+external is ever fed to the model. Self-reported genre/era from runs is shown
+(everywhere) but **never scored on** — it's the model grading itself.
+
 ### See it all on a static website
 
 ```bash
@@ -186,10 +213,11 @@ make site    # → docs/  (self-contained HTML, reads your local judging data)
 
 Open `docs/index.html` locally, or commit `docs/` and point GitHub Pages at the
 `main` branch, `/docs` folder (Pages can only serve the root or /docs from a branch)
-it — scores, duels + Elo, labels, your golden sets, and the latest
-leaderboards, regenerated from local files on each push. No services, no
-APIs: `eval/site.py` only reads `eval/golden/*.jsonl` and the newest
-`eval/output/leaderboard_*.md` files.
+it — scores, duels + Elo, labels, your golden sets, the **Recs tab** (every
+recommendation ever made, with the model's own genre/era read and a tagged/untagged
+flag), and the latest leaderboards, regenerated from local files on each push.
+No services, no APIs: `eval/site.py` only reads `eval/golden/*.jsonl`,
+`eval/output/runs_history.jsonl`, and the newest `eval/output/leaderboard_*.md`.
 
 ---
 
@@ -366,8 +394,9 @@ duels its own other playbook on every profile, batched and resumable,
 standings in `taste.py stats` as `Model [agent]` ladders.
 
 ### 4. Add a model to the sweep
-`--models a,b,c` — any names (with llama-server they're just labels; with Ollama
-they must be pulled model names). The leaderboard ranks them by `quality`,
+`--models a,b,c` — names must be loadable: with llama-server they must match
+a **loaded** model's id/alias (see Quick start note), with Ollama they must be
+pulled model names. The leaderboard ranks them by `quality`,
 `real r1`, and `golden` side by side. See which *kind* of thing each model is bad at
 via the per-profile table.
 

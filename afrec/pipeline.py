@@ -21,6 +21,7 @@ batch evaluation can keep going after one bad response.
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field, asdict
 from typing import Any, Callable
@@ -30,7 +31,59 @@ from .reviews import ACTIVE_TYPE
 from . import spotify as spotify_mod
 
 # A verifier callable: (artist, album) -> (found: bool, canonical_album: str|None, url: str|None)
-Verifier = Callable[[str, str], tuple[bool, str | None, str | None]]
+# Verifier returns (found, canonical, url) — or (found, canonical, url, release_year)
+# when the source can supply it (Spotify can). Older 3-tuple verifiers (tests,
+# fakes) keep working: the pipeline unpacks the 4th element defensively.
+Verifier = Callable[[str, str], tuple]
+
+
+class VerificationGuard:
+    """Circuit breaker around the injected catalog verifier.
+
+    Verifier failures are INFRASTRUCTURE failures, not model failures: a
+    Spotify 429 (QUOTA_EXCEEDED) does not mean "the album doesn't exist".
+    Before this guard, every verifier exception was treated as a genuine
+    miss, so a single quota exhaustion silently dropped ALL candidates —
+    an all-zero run indistinguishable from a model failure (2026-10-04:
+    gemma's "0 recs" was half Spotify 429, masked as hallucination).
+
+    Now: on the first verifier failure the guard LATCHES. For the rest of
+    the run, verification is treated as UNAVAILABLE — candidates pass
+    through and are accepted as-is (found=True so every agent call site
+    keeps them, the same as its verifier=None path), and the registry
+    stamps outcome.verification_error afterward so the eval can flag the
+    run (real r1 → n/a, quality → confidence-only branch) instead of
+    recording a fake 0. Recorded recs are flipped back to verified=False
+    so the data stays honest.
+    """
+
+    def __init__(self, verifier: Verifier, log: Callable | None = None):
+        self._verifier = verifier
+        self._log = log or (lambda _s: None)
+        self.error: str | None = None
+
+    @property
+    def unavailable(self) -> bool:
+        return self.error is not None
+
+    def _passthrough(self, artist: str, album: str) -> tuple:
+        # "Accept as-is": found, no canonical name, plain search link. No
+        # 4th element (no year) — same shape the older verifiers return.
+        return (True, None, spotify_mod.search_url(artist, album))
+
+    def __call__(self, artist: str, album: str) -> tuple:
+        if self.unavailable:
+            return self._passthrough(artist, album)
+        try:
+            return self._verifier(artist, album)
+        except Exception as e:
+            self.error = f"{type(e).__name__}: {e}".replace("\n", " ").strip()
+            msg = (f"⚠ VERIFICATION UNAVAILABLE — {self.error}. "
+                   f"Remaining picks pass through UNVERIFIED for this run "
+                   f"(they are NOT confirmed on the catalog, and the eval will flag this run).")
+            print(msg, file=sys.stderr)
+            self._log(msg)
+            return self._passthrough(artist, album)
 
 
 @dataclass
@@ -58,6 +111,16 @@ class Rec:
     link: str = ""
     verified: bool = False       # True if Spotify confirmed it (or no verifier)
     canonical_album: str | None = None
+    release_year: int | None = None   # from the catalog (Spotify release_date), when available
+    # The model's OWN read of the pick (self-reported, display-only). These are
+    # NEVER scored on — a model grading its own taste is circular. Their jobs:
+    # (1) make untagged recs legible in the TSV/leaderboard/site, (2) feed the
+    # cross-model consensus that the tag-harvest step (eval/harvest.py) turns
+    # into human-reviewed tag proposals.
+    self_genre: str | None = None
+    self_era: str | None = None
+    role: str | None = None      # pool-map agent: core / adjacent / stretch
+    lane: str | None = None      # pool-map agent: lane/thread the rec sits in
     round: int = 1               # 1 = initial, 2 = retry replacement
 
 
@@ -68,6 +131,9 @@ class RunOutcome:
     agent: str = ""            # which agent version produced this (e.g. "artist-then-album@v1")
     suggested_artists: list = field(default_factory=list)   # artists surfaced by the agent (filtered)
     repeated_artist_violations: list = field(default_factory=list)  # already-reviewed artists the model suggested anyway
+    pool_map: dict | None = None         # pool-map agent: Call 0 output (the brief)
+    critic_rejected: int = 0             # pool-map agent: recs the critic rejected
+    critic_rescued: int = 0              # pool-map agent: critic-retry recs that verified
     recs: list = field(default_factory=list)                  # list[Rec]
     stages: list = field(default_factory=list)                # list[StageResult]
     total_candidates: int = 0   # recommendation dicts produced by the agent's generation call(s)
@@ -77,6 +143,8 @@ class RunOutcome:
     retry_missing: int = 0      # failed verification even on retry (dropped)
     verified_count: int = 0
     failed_count: int = 0
+    verification_error: str | None = None   # set when the catalog verifier died mid-run (e.g. Spotify 429); recs are unverified passthroughs
+    enrichment_error: str | None = None     # set when the enricher latched mid-run (quota/API); facts were cache-only from then on — the run is LESS informed, never failed
     total_latency_s: float = 0.0
 
     def to_dict(self) -> dict:
@@ -126,7 +194,21 @@ def _run_stage(
                        error=f"parse error (after 2 attempts): {last_parse_err}")
 
 
-def _rec_dict_to_rec(d: Any, verified: bool, link: str, canonical: str | None, rnd: int) -> Rec | None:
+def _clean_self_report(value: Any) -> str | None:
+    """Light sanitize for model self-reports (genre/era). Display + harvest input
+    only, but keep it tight: strip, collapse whitespace, drop control chars,
+    cap length. Returns None when nothing usable remains."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    s = "".join(ch for ch in s if ch.isprintable() and ch != "\x7f")
+    s = " ".join(s.split())
+    s = s[:60].strip()
+    return s or None
+
+
+def _rec_dict_to_rec(d: Any, verified: bool, link: str, canonical: str | None, rnd: int,
+                     release_year: int | None = None) -> Rec | None:
     if not isinstance(d, dict):
         return None
     artist = str(d.get("artist", "")).strip()
@@ -145,6 +227,11 @@ def _rec_dict_to_rec(d: Any, verified: bool, link: str, canonical: str | None, r
         link=link,
         verified=verified,
         canonical_album=canonical,
+        release_year=release_year,
+        self_genre=_clean_self_report(d.get("genre")),
+        self_era=_clean_self_report(d.get("era")),
+        role=_clean_self_report(d.get("role")),
+        lane=_clean_self_report(d.get("lane")),
         round=rnd,
     )
 
@@ -194,13 +281,16 @@ def verify_and_retry(
         if not artist or not album:
             return None, False
         try:
-            found, canonical, url = verifier(artist, album)
+            result = verifier(artist, album)
         except Exception as e:
             log(f"  [verify] spotify error for {artist} — {album}: {e}")
-            found, canonical, url = False, None, None
+            result = (False, None, None)
+        found, canonical, url = result[0], result[1], result[2]
+        release_year = result[3] if len(result) > 3 else None
         canonical = canonical or album
         link = url or spotify_mod.search_url(artist, canonical)
-        rec = _rec_dict_to_rec(d, verified=bool(found), link=link, canonical=canonical, rnd=rnd)
+        rec = _rec_dict_to_rec(d, verified=bool(found), link=link, canonical=canonical, rnd=rnd,
+                               release_year=release_year)
         return rec, found
 
     verified_recs: list[Rec] = []

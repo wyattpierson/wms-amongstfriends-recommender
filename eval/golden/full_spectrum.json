@@ -1,0 +1,117 @@
+{
+  "profile": "full_spectrum",
+  "description": "Answer key (SEED) for the full_spectrum fixture: what's a good rec for THIS listener (personality, melody, range) vs a lazy genre-centroid echo. Grow from interactive labels.",
+  "annotated_by": "wyatt (seed 2026-10-01; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "Reviewed 2026-10-03: user loves SZA, A Seat at the Table, Malibu, TPAB, Donuts — all on the good side now. Dua Lipa REMOVED from bad (user: 'I do like Dua Lip'). Phoebe Bridgers and Earl Sweatshirt demoted to mid ('solid but not the best'). Flying Lotus added to bad (user rejects it in three profiles; fs-1 lane doesn't redeem it here). Thundercat and Deftones are tag-only middles. The user flags heavy cross-profile repetition in the recs (SZA/Solange/TPAB/Thundercat recur everywhere) — model prior + agent; revisit after duels.",
+  "good": [
+    {
+      "artist": "SZA",
+      "tier": "expected",
+      "reason": "user-confirmed 2026-10-03 (Ctrl); fs-4: R&B that takes risks with the vocal up front — the modern anchor of the Kali lane"
+    },
+    {
+      "artist": "Solange",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'I love A Seat at the Table'; fs-4/fs-5: risky, poetic, vocal-first R&B/soul"
+    },
+    {
+      "artist": "Anderson .Paak",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'I love Malibu'; fs-9/fs-11: warm, melodic, honest, bouncy"
+    },
+    {
+      "artist": "Kendrick Lamar",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'I love TPAB'; fs-2/fs-10/fs-11: ambitious, honest, melodic hiphop about feeling things"
+    },
+    {
+      "artist": "J Dilla",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'I like Donuts'; fs-9/fs-11: hazy, melodic, dusty, human hiphop — the fixture's hiphop lane at its purest"
+    },
+    {
+      "artist": "Rosalía",
+      "tier": "novel",
+      "reason": "user-confirmed 2026-10-03; fs-6: latin music that's dark and future-facing and not just a party record — the cleanest cross-lane move"
+    },
+    {
+      "artist": "Disclosure",
+      "tier": "novel",
+      "reason": "user-confirmed 2026-10-03; fs-1: bouncy club music that keeps the melody under the aggression — the melodic pole of the Baauer lane"
+    }
+  ],
+  "bad": [
+    {
+      "artist": "Skrillex",
+      "tier": "expected",
+      "pair": "melody-vs-drops",
+      "reason": "fs-1: 'I don't get the drop-heavy festival edm that's all aggression and no melody' — the obvious dark-bass read of Baauer is exactly what the review rules out"
+    },
+    {
+      "artist": "Playboi Carti",
+      "tier": "expected",
+      "pair": "feeling-vs-flexing",
+      "reason": "fs-2/fs-11: hiphop about feeling things, not flexing; 'I don't get the trap side where the 808s drown out the words'"
+    },
+    {
+      "artist": "Flying Lotus",
+      "tier": "expected",
+      "reason": "user 2026-10-03: 'it isn't necessarily unjustified, but I don't like it' — rejected in three profiles (warm_groove, underground_flo, full_spectrum); the fs-1 'weirdest club music' lane doesn't redeem the chaos for this listener"
+    }
+  ],
+
+  "tags": {
+    "baauer":        { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "mavi":          { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "nilüfer yanya": { "genres": { "coarse": "pop" }, "era": "2020s" },
+    "kali uchis":    { "genres": { "coarse": "rnb" }, "era": "2020s" },
+    "jamila woods":  { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "flying lotus":  { "genres": { "coarse": "jazz", "fine": "experimental" }, "era": "2010s",
+      "note": "user 2026-10-03: doesn't like it — rejected in three profiles" },
+    "j dilla":       { "genres": { "coarse": "hiphop" }, "era": "2000s",
+      "note": "user 2026-10-03: likes Donuts" },
+    "solange":       { "genres": { "coarse": "rnb" }, "era": "2010s",
+      "note": "user 2026-10-03: loves A Seat at the Table" },
+    "anderson .paak": { "genres": { "coarse": "rnb", "fine": "funk rnb" }, "era": "2010s",
+      "note": "user 2026-10-03: loves Malibu" },
+    "deftones":      { "genres": { "coarse": "rock" }, "era": "2000s",
+      "note": "user 2026-10-03: unfamiliar, needs a listen" },
+    "thundercat":    { "genres": { "coarse": "jazz", "fine": "funk" }, "era": "2010s",
+      "note": "user 2026-10-03: just meh — neither good nor bad" },
+    "bad bunny":     { "genres": { "coarse": "latin" }, "era": "2020s" },
+    "tokimonsta":    { "genres": { "coarse": "dance" }, "era": "2020s" },
+    "lana del rey":  { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "mac miller":    { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "lupe fiasco":   { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "skyzoo":        { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "earl sweatshirt": { "genres": { "coarse": "hiphop" }, "era": "2010s",
+      "note": "user 2026-10-03: solid but not the best — mid, demoted off the good side" },
+    "phoebe bridgers": { "genres": { "coarse": "rock" }, "era": "2020s",
+      "note": "user 2026-10-03: solid but not the best — mid, demoted off the good side" },
+    "sza":           { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "rosalía":       { "genres": { "coarse": "latin" }, "era": "2010s" },
+    "disclosure":    { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "skrillex":      { "genres": { "coarse": "dance" }, "era": "2010s" },
+    "playboi carti": { "genres": { "coarse": "hiphop" }, "era": "2020s" },
+    "dua lipa":      { "genres": { "coarse": "pop" }, "era": "2010s",
+      "note": "user 2026-10-03: 'I do like Dua Lip' — removed from the bad side" },
+    "the weeknd":    { "genres": { "coarse": "rnb" }, "era": "2010s" },
+    "kendrick lamar": { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "drake":         { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "tyler, the creator": { "genres": { "coarse": "hiphop" }, "era": "2010s" },
+    "billie eilish": { "genres": { "coarse": "pop" }, "era": "2010s" },
+    "ariana grande": { "genres": { "coarse": "pop" }, "era": "2010s" }
+  },
+
+  "constraints": [
+    { "check": "min_distinct_genres", "level": "coarse", "value": 4, "weight": 2,
+      "reason": "the top-rated span dance (U), pop (Painless, NFR), rnb (Red Moon in Venus), latin (DeBÍ TiRAR MáS FOToS) and hiphop (MAVI, Swimming, Drill Music in Zion) — an answer collapsed to one lane ignores the range this listener actually rates highest" },
+    { "check": "max_single_genre_share", "level": "coarse", "value": 0.4, "weight": 1,
+      "reason": "hiphop is the biggest lane in the fixture (4 of 11 reviews) so a rap-leaning answer is the MIRROR; the ceiling forces the club/pop/rnb/latin range" },
+    { "check": "min_distinct_decades", "value": 2, "weight": 1,
+      "reason": "the 5★s span 2012 (U) and 2023 (Red Moon in Venus, DeBÍ TiRAR MáS FOToS) and fs-8 says NFR 'ten years later still hits harder' — this listener rewards both timeless and current" }
+  ],
+
+  "justification_keywords": ["personality", "melody", "cinematic", "heartbreak", "weird", "real", "honest", "emotional"]
+}

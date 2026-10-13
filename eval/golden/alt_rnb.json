@@ -1,21 +1,179 @@
 {
   "profile": "alt_rnb",
   "description": "Answer key (SMALL SEED) for the alt_rnb fixture: what's a good rec for THIS listener vs a lazy R&B echo. Grow from interactive labels.",
-  "annotated_by": "wyatt (seed — small on purpose; judge with `evaluate.py --interactive --profile alt_rnb` and promote)",
-  "annotated_at": "2026-09-21",
-  "notes": "SEED — a handful of entries to give the golden column its first teeth; every entry is inferable from the fixture's three reviews. Judge the engine with `evaluate.py --interactive --profile alt_rnb` and promote the artists that keep coming up good/bad here.",
+  "annotated_by": "wyatt (seed 2026-09-21; reviewed with engine author 2026-10-03)",
+  "annotated_at": "2026-10-03",
+  "notes": "Reviewed 2026-10-03: the profile's real axis is DARK + SEXY (moody, genre-blending), not 'romantic' — the user demoted Daniel Caesar (too gentle/bright) and flagged that the fixture is all-male, which neither the recs nor the seed key caught. Good side: SZA confirmed, Tinashe added, DVSN added (user-named). H.E.R., Syd, Solange are tag-only middles ('over-centralized' — missing the electronic/dark edge). Every entry is inferable from the fixture's three reviews.",
   "good": [
-    { "artist": "SZA", "tier": "expected",
-      "reason": "mr-1/mr-2/mr-3: modern R&B that blends electronic/hiphop while keeping the vocal up front — her lane is the same lane, a step past it" },
-    { "artist": "Daniel Caesar", "tier": "expected",
-      "reason": "mr-2: romantic, vocal-forward, a little weird; the channel-orange orbit" },
-    { "artist": "Sault", "tier": "novel",
-      "reason": "mr-2: the cleanest out-of-lane move — Frank Ocean's own project; anyone who loves channel orange this hard should get this" }
+    {
+      "artist": "SZA",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03 ('not as sexy, but no reason to nitpick'); modern R&B that blends electronic/hiphop while keeping the vocal up front"
+    },
+    {
+      "artist": "Tinashe",
+      "tier": "expected",
+      "reason": "user-graded good 2026-10-03 (Joyride); mr-1 lane: dark, forward-looking R&B — the listener already rates her Popstar 5★ in the club_kid fixture"
+    },
+    {
+      "artist": "Sault",
+      "tier": "novel",
+      "reason": "mr-2: the cleanest out-of-lane move — Frank Ocean's own project; anyone who loves channel orange this hard should get this"
+    },
+    {
+      "artist": "DVSN",
+      "tier": "novel",
+      "reason": "user 2026-10-03: 'some things like DVSN could work' — the dark, electronic side of mr-1 ('the production pulls in all these electronic ideas')"
+    }
   ],
   "bad": [
-    { "artist": "Tory Lanez", "tier": "expected", "pair": "soul-vs-slop",
-      "reason": "in-genre R&B but the playlist-slop pole: auto-tuned, hook-first, none of the genre-blending soul the reviews describe" },
-    { "artist": "Ariana Grande", "tier": "expected",
-      "reason": "R&B-pop crossover; a lazy 'pop vocal' read of the profile — the reviews are about R&B that borrows from other genres, not pop that borrows an ad-lib" }
+    {
+      "artist": "Tory Lanez",
+      "tier": "expected",
+      "pair": "soul-vs-slop",
+      "reason": "in-genre R&B but the playlist-slop pole: auto-tuned, hook-first, none of the genre-blending soul the reviews describe"
+    },
+    {
+      "artist": "Ariana Grande",
+      "tier": "expected",
+      "reason": "R&B-pop crossover; a lazy 'pop vocal' read of the profile — the reviews are about R&B that borrows from other genres, not pop that borrows an ad-lib"
+    },
+    {
+      "artist": "Kendrick Lamar",
+      "tier": "expected",
+      "reason": "user 2026-10-03: doesn't fit here — hiphop, and this fixture is R&B (the blend rule is R&B borrowing from others, not hiphop with R&B ad-libs)"
+    },
+    {
+      "artist": "J. Cole",
+      "tier": "expected",
+      "reason": "user 2026-10-03: doesn't fit here — mainstream hiphop, none of the dark/moody/sexy texture"
+    }
+  ],
+  "tags": {
+    "the weeknd": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "frank ocean": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "miguel": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "sza": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "daniel caesar": {
+      "genres": {
+        "coarse": "neo-soul"
+      },
+      "era": "2010s",
+      "note": "user 2026-10-03: a little too gentle — a brighter R&B; demoted off the good side"
+    },
+    "tinashe": {
+      "genres": { "coarse": "rnb" },
+      "era": "2020s",
+      "note": "user-graded good 2026-10-03 (Joyride)"
+    },
+    "dvsn": {
+      "genres": { "coarse": "rnb", "fine": "electronic rnb" },
+      "era": "2010s",
+      "note": "user 2026-10-03: 'could work' — the dark electronic side"
+    },
+    "syd": {
+      "genres": { "coarse": "neo-soul" },
+      "era": "2010s",
+      "note": "user 2026-10-03: not bad, but over-centralized — missing the electronic/dark edge"
+    },
+    "solange": {
+      "genres": { "coarse": "rnb" },
+      "era": "2010s",
+      "note": "user 2026-10-03: not bad, but over-centralized — missing the electronic/dark edge"
+    },
+    "h.e.r.": {
+      "genres": { "coarse": "rnb" },
+      "era": "2020s",
+      "note": "user 2026-10-03: okay, but a little too gentle and soft for this mix"
+    },
+    "kendrick lamar": {
+      "genres": { "coarse": "hiphop" },
+      "era": "2010s",
+      "note": "user 2026-10-03: doesn't fit here"
+    },
+    "j. cole": {
+      "genres": { "coarse": "hiphop" },
+      "era": "2010s",
+      "note": "user 2026-10-03: doesn't fit here"
+    },
+    "sault": {
+      "genres": {
+        "coarse": "neo-soul"
+      },
+      "era": "2010s",
+      "note": "Frank Ocean's collective"
+    },
+    "jhene aiko": {
+      "genres": {
+        "coarse": "neo-soul"
+      },
+      "era": "2010s"
+    },
+    "6lack": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "tory lanez": {
+      "genres": {
+        "coarse": "rnb"
+      },
+      "era": "2010s"
+    },
+    "ariana grande": {
+      "genres": {
+        "coarse": "pop"
+      },
+      "era": "2010s"
+    }
+  },
+  "constraints": [
+    {
+      "check": "lane_balance",
+      "lane": "rnb",
+      "area": "neo-soul",
+      "level": "coarse",
+      "value": 0.5,
+      "weight": 2,
+      "reason": "all three reviews are R&B-family (mr-1 Kissland, mr-2 channel orange, mr-3 Kaleidoscope Dream): R&B = +1, adjacent neo-soul = +0.5, tagged pop/other = −1 (mr-2: 'something real instead of another pop record'); untagged ignored. value 0.5 = net non-negative lane balance"
+    },
+    {
+      "check": "min_distinct_decades",
+      "value": 2,
+      "weight": 1,
+      "reason": "the reviews name the 2012 R&B wave (mr-2/mr-3) AND crown a 2022 album 'this is what R&B should be' (mr-1) — an all-2010s answer ignores the modern anchor, an all-2020s answer ignores the wave"
+    }
+  ],
+  "justification_keywords": [
+    "cinematic",
+    "weird",
+    "dark",
+    "moody",
+    "sexy",
+    "romantic",
+    "heartbreak",
+    "vocal",
+    "electronic"
   ]
 }
