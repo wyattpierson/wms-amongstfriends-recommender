@@ -100,12 +100,12 @@ setup:
 .PHONY: dry
 dry:
 	@test -n "$(FB_UID)" || { echo "usage: make dry FB_UID=<firebaseUid>"; exit 1; }
-	$(PYTHON) recommend.py $(FB_UID) --dry-run
+	$(PYTHON) recommend.py "$(FB_UID)" --dry-run $(if $(GROUP),--group-id "$(GROUP)") --count $(or $(COUNT),1) $(AGENT_OPT) $(ENRICH_OPT)
 
 .PHONY: run
 run:
 	@test -n "$(FB_UID)" || { echo "usage: make run FB_UID=<firebaseUid> [GROUP=<id>]"; exit 1; }
-	$(PYTHON) recommend.py $(FB_UID) --group-id $(or $(GROUP),default-group)
+	$(PYTHON) recommend.py "$(FB_UID)" $(if $(GROUP),--group-id "$(GROUP)") --count $(or $(COUNT),1) $(AGENT_OPT) $(ENRICH_OPT)
 
 # ── Measure ───────────────────────────────────────────────────────────────────
 
@@ -223,6 +223,8 @@ site:
 
 .PHONY: site test
 test:
+	$(PYTHON) eval/tests/test_lastfm.py
+	$(PYTHON) eval/tests/test_production.py
 	$(PYTHON) eval/tests/test_agents.py
 	$(PYTHON) eval/tests/test_offline.py
 	$(PYTHON) eval/tests/test_spotify_existence.py

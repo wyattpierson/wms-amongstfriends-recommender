@@ -18,7 +18,7 @@ from pathlib import Path
 
 import requests
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials, auth, firestore
 
 # afrec/firebase.py → REPO_ROOT is one level up (…/amongstfriends-recommender).
 try:  # prefer python-dotenv; fall back to a tiny parser (keeps firebase.py lightweight)
@@ -131,21 +131,60 @@ def call_function(function_name: str, payload: dict, id_token: str | None = None
         headers["Authorization"] = f"Bearer {id_token}"
     try:
         resp = requests.post(url, json={"data": payload}, headers=headers, timeout=30)
-    except requests.exceptions.ConnectionError as e:
+    except requests.RequestException as e:
         raise FirebaseError(f"Cannot reach Firebase function '{function_name}'. Check connectivity.") from e
 
     if not resp.ok:
         raise FirebaseError(
             f"Firebase function '{function_name}' returned HTTP {resp.status_code}: {resp.text}"
         )
-    outer = resp.json()
-    return outer.get("result", outer)
+    try:
+        outer = resp.json()
+    except ValueError as e:
+        raise FirebaseError(f"Firebase function '{function_name}' returned invalid JSON") from e
+    if not isinstance(outer, dict) or "error" in outer:
+        raise FirebaseError(f"Firebase function '{function_name}' failed: {outer}")
+    result = outer.get("result", outer.get("data", outer))
+    if not isinstance(result, dict) or result.get("success") is False:
+        raise FirebaseError(f"Firebase function '{function_name}' failed: {result}")
+    return result
 
 
 def get_user_reviews(user_id: str, id_token: str) -> list:
-    """Fetch the raw review list for a user via the get_user_reviews callable."""
-    response = call_function("get_user_reviews", {"userId": user_id}, id_token)
-    return response.get("reviews", []) or []
+    """Fetch every review page so delivery exclusions cover the full history."""
+    reviews = []
+    payload = {"userId": user_id}
+    seen_cursors = set()
+    while True:
+        response = call_function("get_user_reviews", payload, id_token)
+        reviews.extend(response.get("reviews", []) or [])
+        cursor = response.get("nextCursor")
+        if not cursor:
+            return reviews
+        if not isinstance(cursor, str) or cursor in seen_cursors:
+            raise FirebaseError("Invalid or repeated review pagination cursor")
+        seen_cursors.add(cursor)
+        payload = {"userId": user_id, "cursor": cursor}
+
+
+def resolve_group(to_user_id: str, group_id: str | None = None) -> str:
+    """Read-only delivery preflight against the backend's membership contract."""
+    initialize()
+    groups = firestore.client().collection("groups")
+    if group_id:
+        doc = groups.document(group_id).get()
+        candidates = [doc] if doc.exists else []
+    else:
+        from google.cloud.firestore_v1 import FieldFilter
+        candidates = groups.where(filter=FieldFilter("members", "array_contains", to_user_id)).get()
+    shared = [doc.id for doc in candidates
+              if {BOT_USER_ID, to_user_id}.issubset((doc.to_dict() or {}).get("members") or [])]
+    if len(shared) == 1:
+        return shared[0]
+    if not shared:
+        raise FirebaseError("No matching group contains both LLMBot and the recipient. "
+                            "Choose an existing shared group with --group-id.")
+    raise FirebaseError("Multiple shared groups; choose --group-id: " + ", ".join(sorted(shared)))
 
 
 def submit_recommendation(payload: dict, id_token: str) -> dict:

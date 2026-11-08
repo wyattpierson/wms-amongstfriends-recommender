@@ -798,6 +798,203 @@ Respond ONLY with a valid JSON object. No markdown, no preamble.
 }}"""
 
 
+def build_prompt_pool_map_v2_1(reviews, catalog_years: dict | None = None, n_recs=8, max_reviews: int = 30,
+                               catalog_facts: dict | None = None, version_label: str = "v2.1") -> str:
+    """Pool-map v2.1: v1.2's map with a SHIP BAR instead of v2.0's tiering.
+
+    v2.0 turned the plan into axis-tiered QUOTAS (coherent → 6–7 core) and the
+    8Bs padded the quota: lane-stretched filler, cross-lane overflow, and
+    invented titles (r1 88%→62%). v2.1 keeps v2.0's insight — the pool's range
+    should constrain branching — but reframes it as a BAR-HEIGHT rule: the more
+    coherent the pool, the more each non-core pick must cite the listener's
+    own words; a slot that can't clear the bar goes UNFILLED instead of being
+    padded. The plan numbers are goals a weak candidate can miss, never quotas.
+    Also moves the anti-reflex rule into the PLAN (core picks must fit THIS
+    listener, not just the lane) and defines confidence as evidence tiers, so
+    the downstream calls calibrate the same way.
+    """
+    review_block, _artists, _albums = _format_reviews_numbered(reviews, max_reviews, catalog_years, catalog_facts)
+    catalog_note = (
+        '(Albums marked "catalog: …" carry catalog FACTS for that album — release year, listener tags, '
+        'and sound measurements (energy/danceability/valence, bpm, key). Trust them over your memory.)'
+        if catalog_facts else
+        '(Albums marked "catalog: YYYY" carry a release year from the music catalog — trust that over your memory.)'
+    )
+    n_pool = len({(r["artist"].lower().strip(), r["album"].lower().strip()) for r in reviews})
+    if n_pool < 8:
+        small_block = f"""SMALL-POOL RULE — this user has rated only {n_pool} albums. A tiny pool is EARLY EVIDENCE, not a verdict:
+- Use at most 2 lanes, and mark a lane "strong" ONLY if 2+ five-star KNOWN albums support it.
+- Keep "axes" claims modest ("narrow"/"medium", not "wide").
+- Plan for {n_recs} recs with "core" at least half and "stretch" at most 1."""
+        weight_rule = ""
+    else:
+        small_block = ""
+        weight_rule = " Weight by RATINGS, not fame: a 5-star obscure album matters more than a 3-star famous one."
+
+    ship_bar = f"""
+
+   THE SHIP BAR — the pool's range sets how JUSTIFIED each pick must be, NOT how many slots exist. Read "axes" (step 3), then set the bar:
+   • The more COHERENT the pool (genre AND era "narrow"), the harder every adjacent/stretch pick must lean on the listener's OWN words: it must extend a specific numbered album, a named "surprise", or the "tension" — a bare thread is not enough on a coherent pool. Constrain by raising the bar, never by padding: if nothing clears it, that slot simply goes unfilled. A coherent pool served mostly in-lane is the correct answer, not a cop-out — do not branch out of politeness.
+   • A genuinely DIVERSE pool (any axis "wide") may explore on thread alone, up to 2–3 stretch.
+   • CORE picks must fit THIS listener, not just the lane: if the first candidate is the album a TYPICAL fan of the lane names first, it may ship only if it also matches the "fingerprint" or an explicit pool cue — otherwise the plan calls for the second choice.
+   • Confidence in step 2 is EVIDENCE, not vibes: explicit pool cue + strong lane fit → 0.9–1.0; strong lane fit + one supporting cue → 0.7–0.9; adjacent/stretch with a cited cue → 0.6–0.8; a reflex core pick is capped at 0.7 unless an explicit pool cue supports it; a pick you cannot back with any cue is a pick you should not make."""
+
+    return f"""You are a music taste analyst for a social app called AmongstFriends.
+
+STEP 1 of 2 — POOL MAP ({version_label}). Before anything is recommended, you analyze this user's own listening. Do NOT recommend any new music in this step — analysis only.
+
+User's ratings (numbered — the number is the review's id for citing):
+{review_block}
+
+{catalog_note}
+
+GROUNDING RULES — the map is only as good as its evidence:
+- A lane must rest on 2+ albums numbered above (1 only if the user has fewer than 5 albums total). If fewer than 2 albums share a property, it is a "thread", not a lane.
+- Mark a read "known": true ONLY if you are confident you actually know that specific album. A lane built mostly on guessed reads is "weak".
+- "repels" comes ONLY from albums they rated 3★ or below (use [] if they have none). Never derive a repel from what the pool does NOT contain.
+{small_block}
+Produce the pool map, in this order:
+
+1. "reads" — for EVERY album above, your best read: a coarse genre, the decade, energy (1–10; 1 = slow/downtempo, 10 = peak danceable), and "known": true/false per the grounding rules.
+2. "lanes" — at most 3 lanes. A lane is a recurring property tying its albums together: a genre, era, mood, production style, scene/city, shared producer, tempo family, or lyrical theme. For each: a short name, one sentence on what ties it together, its albums (the exact "Artist — Album" lines from above, each with its [number]), an energy estimate (1–10), and strength — "strong" (2+ highly-rated, mostly KNOWN albums), "moderate", or "weak" (1–2 albums or mostly guessed reads).
+3. "axes" — the RANGE of the pool: "genre_spread" and "era_spread" (each "narrow"|"medium"|"wide"), "energy_range" [low, high], and 2–4 "mood" words.
+4. Uniqueness:
+   - "fingerprint": 2–4 things that distinguish them from a typical listener of their dominant lane.
+   - "attracts": 2–4 things their highest-rated albums share.
+   - "repels": per the grounding rules above — hard constraints for the next step.
+   - "surprises": the album(s) unexpected given the rest of the pool, and what each suggests.
+   - "tension": the biggest contradiction and how to handle it (lean one way or bridge deliberately — never average). "none" if there isn't one.
+5. "threads" — 2–4 connective threads (shared producers, scenes, cities, sounds, techniques). Raw material for adjacent discoveries.
+6. "plan" — the TARGET allocation for up to {n_recs} recommendations in step 2: "core" (inside an existing lane), "adjacent" (neighboring scene/thread), "stretch" (bold-but-plausible leap with a stated thread back to the pool). Start from 4 core / 3 adjacent / 1 stretch (summing {n_recs}) and let the SHIP BAR below shrink it — the numbers are goals a weak candidate can miss, never quotas to pad.{weight_rule}{ship_bar}
+
+Respond ONLY with a valid JSON object. No markdown, no preamble.
+{{
+  "reads": [{{"album": "Artist — Album", "genre": "...", "era": "2010s", "energy": 6, "known": true}}],
+  "lanes": [{{"name": "...", "why": "...", "albums": ["Artist — Album (2)"], "energy": 6, "strength": "strong"}}],
+  "axes": {{"genre_spread": "narrow", "era_spread": "narrow", "energy_range": [4, 7], "mood": ["warm"]}},
+  "fingerprint": ["..."],
+  "attracts": ["..."],
+  "repels": ["..."],
+  "surprises": ["..."],
+  "tension": "...",
+  "threads": ["..."],
+  "plan": {{"core": 4, "adjacent": 3, "stretch": 1}}
+}}"""
+
+
+def build_prompt_pool_discovery_v2_1(reviews, pmap: dict | None, n: int, max_reviews: int = 30) -> str:
+    """Pool-discovery v2.1: v1.1's existence-first discovery, evidence-tuned.
+
+    Deltas vs v1.1: (a) the reflex rule hardens — a typical-fan first name
+    ships only on an explicit pool cue, and its confidence caps at 0.7 until
+    then (v1.1 only "ask whether"); (b) adjacent/stretch picks must CITE the
+    specific pool cue in the reason, or be demoted to certain core; (c)
+    confidence gets the same evidence tiers the v2.1 map defines, so the
+    critic's defense test and the critic's rank have something to lean on.
+    Still "exactly n" — the critic is the gate that may cut below n.
+    """
+    map_block = _map_block(pmap) if pmap else "(No pool map was produced — work directly from the ratings below.)"
+    review_block, artists, albums = _format_reviews_numbered(reviews, max_reviews)
+
+    if pmap:
+        plan_rule = ("- Follow the PLAN in the pool map as closely as existence allows: each entry's "
+                     '"role" says core, adjacent, or stretch. The plan is a TARGET set against the map\'s '
+                     'SHIP BAR, not a quota — if a slot cannot be filled with a pick you can defend, fill it '
+                     'with the next-best certain pick you can.')
+        lane_rule = ('- "lane": name the pool-map lane it sits in (core), or the adjacent '
+                     'scene/thread it crosses from (adjacent/stretch).')
+    else:
+        plan_rule = ('- Spread the list across the user\'s range: a few safe picks, a couple of '
+                     'adjacent scenes, one bold-but-plausible stretch. Each entry\'s "role" says '
+                     'core, adjacent, or stretch.')
+        lane_rule = ('- "lane": the taste area it sits in or the thread that connects it '
+                     '(e.g. "downtempo soul", "shared producer: Madlib").')
+
+    return f"""You are a music recommendation engine for a social app called AmongstFriends.
+
+STEP 2 of 2 — RECOMMEND (v2.1). Based on this user's album ratings, recommend {n} real albums they have NOT already reviewed.
+
+{map_block}
+User's ratings (numbered):
+{review_block}
+
+Rules:
+- Each entry is a SPECIFIC album (artist + exact album title) that genuinely exists. If you are not certain an album with that exact title exists, choose one you ARE certain about.
+- EXISTENCE FIRST: the plan's counts are GOALS, not quotas. A certain core pick beats an uncertain stretch — if you cannot name a real album for a stretch slot, fill that slot with the next-best pick you ARE certain exists. Never invent, translate, or "clean up" a title.
+- Avoid the reflex pick: if the most obvious album for a lane is the one a TYPICAL fan of that lane would name first, it ships ONLY if the fingerprint or a specific pool cue points to it — and its confidence is capped at 0.7 unless an explicit pool cue (a numbered album) supports it. Otherwise take the second choice you are certain exists.
+- Name the thread with EVIDENCE: for adjacent/stretch picks, the reason must cite the specific pool cue it extends — the numbered album, the surprise, or the tension. If you cannot name one, make it a core pick you are certain of instead.
+- Never suggest artists the user has already reviewed: {artists}
+- Never include albums the user has already reviewed: {albums}
+{plan_rule}
+{lane_rule}
+- Treat "Repels" as hard constraints — nothing in the list may trip them.
+- Weight by RATINGS, not fame: a 5-star obscure album matters more than a 3-star famous one.
+- Keep the reason to one or two sentences, written like a friend's tip — and for adjacent/stretch picks, name the thread that connects it to the pool.
+- Confidence is EVIDENCE, not vibes (0.0–1.0): explicit pool cue + strong lane fit → 0.9–1.0; strong lane fit + one supporting cue → 0.7–0.9; adjacent/stretch with a cited cue → 0.6–0.8; a reflex core pick caps at 0.7 unless an explicit pool cue supports it. A pick you cannot back with any cue gets a low confidence — the critic will cut it.
+- Also report per entry: "genre" (a short coarse label) and "era" (the decade, e.g. "2010s").
+
+Respond ONLY with a valid JSON array of exactly {n} objects. No markdown, no preamble.
+[
+  {{"artist": "Artist Name", "album": "Exact Album Title", "confidence": 0.8, "reason": "one or two sentences, like a friend's tip", "genre": "downtempo soul", "era": "2010s", "role": "core", "lane": "downtempo soul"}}
+]"""
+
+
+def build_prompt_critic_v2_1(reviews, pmap: dict, recs: list[dict], max_reviews: int = 30) -> str:
+    """Critic v2.1: a GATE with a positive defense, plus a delivery RANK.
+
+    v1.1's critic rejected only LANE VOID / REPEL COLLISION — it could not cut
+    a pick that is real, in-lane, and yet "obviously not for this person" (the
+    reflex core pick: Tory Lanez for an alt-R&B listener). v2.1 adds DEFENSE
+    FAILURE: every keep must carry a one-sentence case written for THIS
+    listener, and fame or right-genre is not a defense. Reflex picks need a
+    specific pool cue. The v1.1 "reject AT MOST 3" cap is gone — with the
+    leniency rules it disabled the critic; the agent's >50%-rejection circuit
+    breaker still protects against an 8B over-rejecting.
+    The critic also RANKS its keeps best-first: the product ships ONE album at
+    a time, so the top of the list is the product. The agent reorders the kept
+    recs into this order.
+    """
+    map_block = _map_block(pmap)
+    review_block, _artists, _albums = _format_reviews_numbered(reviews, max_reviews)
+    recs_block = "\n".join(
+        f"  {r['artist']} — {r['album']} (role: {r.get('role', '?')}, lane: {r.get('lane', '?')}, reason: {r['reason']})"
+        for r in recs
+    )
+
+    return f"""You are a skeptical music critic for AmongstFriends. You did NOT make the recommendations below — a different analyst did. Your job is to try to REJECT each one.
+
+The pool map of the user (the analyst's own brief):
+{map_block}
+User's ratings (numbered — low ratings are evidence; cite the number when you use one):
+{review_block}
+
+Candidate recommendations:
+{recs_block}
+
+Reject a rec if ANY of these holds:
+- DEFENSE FAILURE: the best one-sentence case for it to THIS listener is only "it's in the right genre/era" or leans on the artist's fame. A reflex pick — the first album a typical fan of its lane would name — is rejected unless a SPECIFIC pool cue supports it: a numbered album it extends, the fingerprint, or a named surprise.
+- LANE VOID: it does not sit in any of the map's lanes, and no stated thread connects it to the pool. (This includes a "stretch" with no thread, and a "core" pick that is not actually inside its claimed lane.)
+- REPEL COLLISION: it trips anything in the "Repels" constraints, or it echoes one of the user's LOW-rated albums (cite the review number).
+
+Calibration — you are protecting the listener, not shaping the list:
+- If the user's pool is small (fewer than ~8 albums) or a lane is "weak", be LENIENT on LANE VOID: weak evidence is not grounds to reject. The DEFENSE FAILURE test still applies — fame is not a defense.
+- An era or energy mismatch alone is NOT grounds to reject.
+- If you are on the fence, KEEP — unless the defense test plainly fails.
+- Never reject a good pick just to balance roles.
+
+RANK the verdicts: list every rec you KEEP first, in order — the one you would put FIRST for this listener at the top. This order is the delivery order. Then list the rejected ones.
+Also report "unfilled_roles": which of the plan's roles (core / adjacent / stretch) no surviving rec covers. Use [] if every role is covered.
+
+Respond ONLY with a valid JSON object. No markdown, no preamble.
+{{
+  "verdicts": [
+    {{"artist": "Artist Name", "album": "Exact Album Title", "verdict": "keep", "reason": "the one-sentence defense for this listener"}},
+    {{"artist": "Artist Name", "album": "Exact Album Title", "verdict": "reject", "reason": "the rule it trips, one line"}}
+  ],
+  "unfilled_roles": ["stretch"]
+}}"""
+
+
 def build_prompt_pool_discovery_v1_1(reviews, pmap: dict | None, n: int, max_reviews: int = 30) -> str:
     """Pool-discovery v1.1: EXISTENCE-FIRST.
 

@@ -155,6 +155,12 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
         m["golden_pair_score"] = gs["pair_score"]
         m["golden_novel_hits"] = gs["novel_hits"]
         m["golden_novel_total"] = gs["novel_total"]
+        # Top-3 slice: the product ships ONE album at a time, so the head of
+        # the ranked list is the product. Same scoring, first 3 recs only.
+        g3 = golden_mod.score_recs_against_golden(recs[:3], gset)
+        m["golden_top3_good"] = g3["good_hits"]
+        m["golden_top3_bad"] = g3["bad_hits"]
+        m["golden_top3_score"] = g3["score"]
     else:
         m["golden_good"] = None
         m["golden_bad"] = None
@@ -164,6 +170,9 @@ def score_outcome(profile: dict, outcome: pipeline.RunOutcome, spotify_ons: bool
         m["golden_pair_score"] = None
         m["golden_novel_hits"] = None
         m["golden_novel_total"] = None
+        m["golden_top3_good"] = None
+        m["golden_top3_bad"] = None
+        m["golden_top3_score"] = None
 
     # Structure (response-level: genre/era spread vs the fixture's own
     # composition) + justification keyword hits. Kept OUT of golden/quality —
@@ -430,8 +439,8 @@ def render_leaderboard(results: list[dict], args) -> str:
     lines.append(f"Agent: `{agent_txt}`   "
                  f"Base URL: `{args.base_url}`   Spotify: {sp}   Enriched: {enriched}   "
                  f"temperature: {args.temperature}   profiles: {len(rows[0]['per_profile']) if rows else 0}\n")
-    lines.append("| rank | model | agent | avg quality | avg real (r1, Spotify) | avg golden (humans) | pairs | novel | structure | ok/total | avg wallclock (s) |")
-    lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| rank | model | agent | avg quality | avg real (r1, Spotify) | avg golden (humans) | golden top-3 | pairs | novel | structure | ok/total | avg wallclock (s) |")
+    lines.append("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     untrusted: list[str] = []
     for i, r in enumerate(rows, 1):
         ggs = avg_golden(r)
@@ -447,8 +456,12 @@ def render_leaderboard(results: list[dict], args) -> str:
         ntxt = f"{nh}/{nt}" if nt else "n/a"
         st = avg_structure(r)
         stxt = f"{st:.2f}" if st is not None else "n/a"
+        t3s = [b["metrics"]["golden_top3_score"]
+               for b in r["per_profile"].values()
+               if (b.get("metrics") or {}).get("golden_top3_score") is not None]
+        t3txt = f"{sum(t3s) / len(t3s):+.3f}" if t3s else "n/a"
         flag = " ⚠️ UNTRUSTED" if untr else ""
-        lines.append(f"| {i} | {r['model']}{flag} | {r.get('agent', '?')} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {ptxt} | {ntxt} | {stxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
+        lines.append(f"| {i} | {r['model']}{flag} | {r.get('agent', '?')} | {r['avg_quality']:.3f} | {atxt} | {gtxt} | {t3txt} | {ptxt} | {ntxt} | {stxt} | {r['n_ok']}/{r['n_total']} | {r['total_wallclock_s']:g} |")
     if untrusted:
         lines.append("")
         lines.append(f"> ⚠️ **UNTRUSTED** — avg real r1 ≤ {UNTRUSTED_REAL_R1_MAX:.0%} (≥75% of round-1 recs "
@@ -458,16 +471,18 @@ def render_leaderboard(results: list[dict], args) -> str:
     # Per-profile detail for each model
     for r in rows:
         lines.append(f"\n## {r['model']}\n")
-        lines.append("| profile | ok | recs | new artists | role mix (c/a/s) | real r1 | rescued | golden g/b | golden | pairs | novel | structure | just | avg conf | quality | status |")
-        lines.append("|---|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|---|")
+        lines.append("| profile | ok | recs | new artists | role mix (c/a/s) | real r1 | rescued | golden g/b | golden | top-3 | pairs | novel | structure | just | avg conf | quality | status |")
+        lines.append("|---|---|---|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---|---|---:|")
         for name, block in r["per_profile"].items():
             m = block["metrics"]
             if m.get("golden_score") is None:
                 gcol, ggb = "n/a", ""
+                t3col = "n/a"
                 pcol = f"{m['golden_pair_points']:+d}/{m['golden_pair_total']}" if m.get("golden_pair_total") else "n/a"
             else:
                 gcol = f"{m['golden_score']:+.3f}"
                 ggb = f"{m['golden_good']}g / {m['golden_bad']}b"
+                t3col = f"{m['golden_top3_good']}g/{m['golden_top3_bad']}b" if m.get("golden_top3_score") is not None else "—"
                 pcol = f"{m['golden_pair_points']:+d}/{m['golden_pair_total']}" if m.get("golden_pair_total") else "—"
             ncol = f"{m['golden_novel_hits']}/{m['golden_novel_total']}" if m.get("golden_novel_total") else "—"
             if m.get("raw_existence_rate") is None:
@@ -490,7 +505,7 @@ def render_leaderboard(results: list[dict], args) -> str:
             rolecol = _role_mix(block)
             lines.append(
                 f"| {name} | {'✅' if m.get('ok') else '❌'} | {m['n_recs']} | {m['n_new_artists']} | {rolecol} "
-                f"| {r1col} | {resc} | {ggb} | {gcol} | {pcol} | {ncol} | {scol} | {jcol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
+                f"| {r1col} | {resc} | {ggb} | {gcol} | {t3col} | {pcol} | {ncol} | {scol} | {jcol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
             )
 
         # Recs with the model's self-reported genre/era — display only (never
@@ -547,11 +562,14 @@ def append_run_history(results: list[dict], out_dir: Path, ts: str) -> int:
                     }
                     for rec in (outcome.get("recs") or [])
                 ]
+                pmap = outcome.get("pool_map") or {}
                 f.write(json.dumps({
                     "ts": now, "run": ts, "model": r["model"], "agent": r.get("agent", ""),
                     "profile": name, "status": (block.get("metrics") or {}).get("status"),
                     "verification_error": (block.get("metrics") or {}).get("verification_error"),
                     "enriched": r.get("enriched"),
+                    "plan": (pmap or {}).get("plan"),
+                    "axes": (pmap or {}).get("axes"),
                     "recs": recs,
                 }, ensure_ascii=False) + "\n")
                 n += 1
@@ -566,6 +584,7 @@ def write_tsv(results: list[dict], path: Path) -> None:
             "golden_good", "golden_bad", "golden_score",
             "golden_pair_points", "golden_pair_total", "golden_pair_score",
             "golden_novel_hits", "golden_novel_total",
+            "golden_top3_good", "golden_top3_bad", "golden_top3_score",
             "structure_points", "structure_total", "structure_score",
             "lane_share", "lane_balance", "tag_coverage",
             "just_hits", "just_total", "just_fixture_hits",
@@ -592,6 +611,8 @@ def write_tsv(results: list[dict], path: Path) -> None:
                     m.get("golden_pair_points", ""), m.get("golden_pair_total", ""),
                     (f"{m['golden_pair_score']:.3f}" if m.get("golden_pair_score") is not None else ""),
                     m.get("golden_novel_hits", ""), m.get("golden_novel_total", ""),
+                    m.get("golden_top3_good", ""), m.get("golden_top3_bad", ""),
+                    (f"{m['golden_top3_score']:+.3f}" if m.get("golden_top3_score") is not None else ""),
                     m.get("structure_points", ""), m.get("structure_total", ""),
                     (f"{m['structure_score']:.3f}" if m.get("structure_score") is not None else ""),
                     (f"{m['lane_share']:.3f}" if m.get("lane_share") is not None else ""),

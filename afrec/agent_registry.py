@@ -152,6 +152,15 @@ def get_agent(tag: str) -> Agent:
     if tag in _REGISTRY:
         return _REGISTRY[tag]
     bare = tag.split("@", 1)[0]
+    if "@" in tag:
+        # A versioned tag naming a version that was never registered must NOT
+        # silently fall back to a different version — that would run one
+        # playbook and record the results under another's tag.
+        versions = [a.version for a in _REGISTRY.values() if a.id == bare]
+        raise ValueError(
+            f"unknown agent version '{tag}'. "
+            f"Registered versions of '{bare}': {', '.join(versions) or '(none)'}"
+        )
     matches = [a for t, a in _REGISTRY.items() if a.id == bare]
     if not matches:
         known = ", ".join(sorted(_REGISTRY)) or "(none)"

@@ -69,12 +69,25 @@ def _tags(node: dict | None, *, limit: int, min_count: int = MIN_TAG_COUNT) -> l
     counts. So the min_count noise floor applies only to COUNTED lists — an
     uncounted list is already server-ranked and is kept as-is."""
     entries = []
-    for t in (node or {}).get("tag", []):
+    if not isinstance(node, dict):
+        return entries
+    tags = node.get("tag") or []
+    if isinstance(tags, dict):
+        tags = [tags]
+    if not isinstance(tags, list):
+        return entries
+    for t in tags:
+        if not isinstance(t, dict):
+            continue
         name = clean_label(t.get("name"))
         if not name:
             continue
         raw = t.get("count")
-        entries.append((name, int(raw) if raw is not None else None))
+        try:
+            count = int(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            continue
+        entries.append((name, count))
     counted = [(n, c) for n, c in entries if c is not None and c >= min_count]
     if counted:
         counted.sort(key=lambda tc: (-tc[1], tc[0]))

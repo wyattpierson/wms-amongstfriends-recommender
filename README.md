@@ -105,11 +105,39 @@ Model name/URL come from `.env`; override with `MODELS=...` where shown.
 | I want to… | Command |
 |---|---|
 | Test safely: fetch reviews + generate recs, **submit nothing** | `make dry FB_UID=<uid>` |
-| Really run it and submit recommendations | `make run FB_UID=<uid>` |
-| Submit into a specific group instead of `default-group` | `make run FB_UID=<uid> GROUP=<id>` |
+| Send one recommendation as LLMBot | `make run FB_UID=<uid>` |
+| Choose an existing group containing both users | `make run FB_UID=<uid> GROUP=<id>` |
 | Run without Spotify verification | add `--no-spotify` to the `recommend.py` call |
 
 > **Always `make dry` first.**
+
+Production defaults to **one** recommendation with the highest model-reported
+confidence among eligible picks. It fetches all review pages and excludes
+reviewed artist/album pairs again after verification, checking canonical album
+titles too (case, accents, whitespace, and punctuation are normalized). Confidence
+is the model's estimate, not a calibrated probability. Use `COUNT=3`
+(or `--count 3`) to deliver more. Both `dry` and `run` accept `GROUP`, `AGENT`,
+and `ENRICH=1`; the latter supplies the same enrichment used in evaluations.
+For example:
+
+```bash
+make dry FB_UID=<uid> GROUP=<group-id> AGENT=pool-map@v1.2 ENRICH=1
+make run FB_UID=<uid> GROUP=<group-id> AGENT=pool-map@v1.2 ENRICH=1
+```
+
+With no `GROUP` / `GROUP_ID`, the command reads group membership and selects the
+only group shared by LLMBot and the recipient. If there are several, it lists
+the IDs and requires an explicit selection. It never creates or joins groups.
+Remove any old `GROUP_ID=default-group` placeholder from your local configuration.
+The service account needs read access to groups for this preflight.
+Dry runs still generate a preview when no delivery group is available and
+explain the membership problem; live runs stop before generation.
+
+Delivery requires Spotify verification unless `--no-spotify` is explicitly
+passed. A verification outage, failed generation, or unsuccessful submission
+returns a nonzero exit status. Dry runs can still inspect unverified output.
+Repeated invocations are separate sends: delivery is not yet idempotent.
+
 
 ### Automated — measure with no human in the loop
 
@@ -300,7 +328,7 @@ get_user_reviews()       local LLM                 submit_recommendation()
 |---|---|
 | `❌ Cannot reach llama-server` | Server isn't running or `LLM_URL` is wrong. `curl $LLM_URL/v1/models` |
 | `❌ Failed to exchange custom token for ID token` | Wrong/missing `FIREBASE_WEB_API_KEY` |
-| Firebase function `403` | Function is rejecting `LLMBot` — add a bypass for that UID in the function code |
+| Firebase function `403` | Check bot authentication and trusted review-reader configuration; delivery requires both bot and recipient in the selected group's `members`. Do not bypass group authorization. |
 | Firebase function `404` | Function name/region mismatch — check `FIREBASE_REGION` |
 | `❌ Could not parse LLM response as JSON` | Small model not following JSON instructions; try a bigger GGUF (raw output is printed) |
 | `⚠️ Only N review(s) — need at least 3` | User hasn't reviewed enough albums (`MIN_REVIEWS_TO_RUN` env knob) |
@@ -319,5 +347,5 @@ get_user_reviews()       local LLM                 submit_recommendation()
   `afrec/agents.py` so scores stay attributable.
 - **`afrec/agents.py`** — the agent registry (see "Agents" above).
 - Env: `MIN_REVIEWS_TO_RUN` (default 3), `SPOTIFY_MATCH_THRESHOLD` (default 0.5),
-  `GROUP_ID` (default `default-group`), plus the `.env` table above.
+  `GROUP_ID` (optional existing shared group), plus the `.env` table above.
 - CLI: `--temperature` on the eval tools (lower = less creative, fewer hallucinations).

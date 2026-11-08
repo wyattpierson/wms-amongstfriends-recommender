@@ -4,6 +4,12 @@ Living plan for the human-in-the-loop evaluation of the AmongstFriends
 recommender. This is the source of truth for the workflow — chat history
 is not. Last updated: 2026-09-23.
 
+> **Post-snapshot (2026-10):** automated scoring now includes response
+> structure (golden-set `tags`/`constraints`/`justification_keywords`, graded
+> `lane_balance` checks) and `make harvest` maintains tag coverage — see
+> `eval/golden/README.md` and `AI_NOTES.md`. Everything below still stands for
+> the human-judging campaign (labels, scores, duels, Elo).
+
 ## Goal
 
 Produce a trustworthy per-(model × agent) ranking on **taste fit** (not
@@ -66,7 +72,7 @@ reasons. Consequences:
 
 ```bash
 # big model, alone, both agents (Qwen runs no-think automatically —
-# see eval/model_options.json; add --thinking only for quality spot-checks)
+# see afrec/model_options.json; add --thinking only for quality spot-checks)
 venv/bin/python eval/evaluate.py --models Qwen3.8-27B-Q8_0 \
     --agent artist-then-album@v1 --profile jazzy_hiphop
 venv/bin/python eval/evaluate.py --models Qwen3.8-27B-Q8_0 \
@@ -174,9 +180,10 @@ Fixes (shipped):
 1. `afrec/pipeline.py::_run_stage` — **one retry** on `ResponseParseError`
    (flake guard; `LLMError` still fails fast).
 2. `afrec/llm.py::_extract_json` — **unwraps** single-element nested lists.
-3. **Per-model no-think (automatic)** — `eval/model_options.json` maps
+3. **Per-model no-think (automatic)** — `afrec/model_options.json` maps
    `Qwen3.8-27B-Q8_0` → `chat_template_kwargs: {"enable_thinking": false}`;
-   `evaluate.py` and `taste.py` merge it in per model (`model_options.py`).
+   `LlamaCPPLM.generate()` merges it in per model automatically
+   (`afrec/model_options.py`; production and eval alike).
    ~20× faster (100–131 s vs 137–160 s *per stage*), same quality
    (0.718–0.800). No flag needed. CLI overrides: `--thinking` (force on,
    spot-checks) / `--no-thinking` (force off, all models).
@@ -222,7 +229,7 @@ model/agent and compare `good_rate` before locking the default.
 | `eval/duels.py` | `agents` / `models` / `status` — batched, resumable duel sessions |
 | `eval/EVAL_CHECKLIST.md` | the to-do list — every remaining command to type, in order (this plan's "what's left") |
 | `eval/output/duel_sessions/` | duel session resume state (safe to delete; `duels.jsonl` is the record) |
-| `eval/model_options.py` + `model_options.json` | per-model LLM options (Qwen no-think), merged into every generate call |
+| `afrec/model_options.py` + `model_options.json` | per-model LLM options (Qwen/gemma no-think), merged into every LlamaCPPLM generate call |
 | `eval/golden/labeled.jsonl` | **the** durable human corpus (append-only) |
 | `eval/golden/<profile>.json` | curated seeds (+ your additions) |
 | `eval/output/leaderboard_*.md` | per-sweep leaderboard |

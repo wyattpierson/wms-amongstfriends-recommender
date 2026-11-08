@@ -147,8 +147,8 @@ ok("agent details describe the knobs", "calls" in a.details and "calls" in b.det
 ok("pool-map@v1.1 registered", "pool-map@v1.1" in tags)
 ok("pool-map@v1.2 registered", "pool-map@v1.2" in tags)
 ok("pool-map@v2.0 registered", "pool-map@v2.0" in tags)
-ok("bare pool-map resolves to v2.0 (latest)",
-   afrec_agents.get_agent("pool-map").tag == "pool-map@v2.0")
+ok("bare pool-map resolves to v2.1 (latest)",
+   afrec_agents.get_agent("pool-map").tag == "pool-map@v2.1")
 ok("v1.1 still addressable by full tag", afrec_agents.get_agent("pool-map@v1.1").tag == "pool-map@v1.1")
 
 # retired alias: old two-call name still resolves

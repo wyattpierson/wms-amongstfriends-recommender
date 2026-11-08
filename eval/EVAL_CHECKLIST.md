@@ -3,6 +3,12 @@
 Snapshot as of 2026-09-24. Companion to `EVAL_PLAN.md` (the "why"); this file
 is the "what's left to type". Run everything from the repo root.
 
+> **Post-snapshot (2026-10):** the automated side grew — golden sets gained a
+> response-structure layer (`tags`/`constraints`/`justification_keywords`,
+> incl. graded `lane_balance`), the leaderboard has `structure`/`just`/
+> `lane_balance` columns, and `eval/harvest.py` (`make harvest`) maintains tag
+> coverage. Schema + workflow: `eval/golden/README.md`; state: `AI_NOTES.md`.
+
 ## State so far (already done — do not re-run)
 
 - [x] Triage sweep, **jazzy_hiphop**, both agents: `Qwen3.8-27B-Q8_0`,
@@ -26,7 +32,8 @@ Models in the pool (`http://localhost:8092`):
 | `gemma-4-E4B-it-Q8_0` | small — pairable |
 
 Agents: `artist-then-album@v1` (selected default) and `album-first@v1`.
-Profiles: `jazzy_hiphop`, `warm_groove`, `alt_rnb`, `wyatt`.
+Profiles: `jazzy_hiphop`, `warm_groove`, `alt_rnb`, `full_spectrum` (replaced
+`wyatt`, 2026-10), `underground_flo`, `alt_soul`, `club_kid`.
 
 ---
 
@@ -210,11 +217,11 @@ to resume. One model at a time → respects the one-big-model limit.
       (agent-duel standings appear as `Model [agent]` units, so the two
       playbooks get separate ladders per model)
 
-## Phase 9 — wyatt (last; 18 reviews — slowest, most personal)
+## Phase 9 — full_spectrum (last; ex-`wyatt`, 11 reviews — most personal)
 
-- [ ] Triage: survivors × both agents, `--profile wyatt`
+- [ ] Triage: survivors × both agents, `--profile full_spectrum`
 - [ ] Interactive labeling: survivors × both agents, `--interactive`
-- [ ] `taste.py pending --judge`, curate `eval/golden/wyatt.json`,
+- [ ] `taste.py pending --judge`, curate `eval/golden/full_spectrum.json`,
   score/duel the top combos, `taste.py stats`
 
 ---
