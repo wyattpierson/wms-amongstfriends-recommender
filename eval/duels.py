@@ -59,6 +59,8 @@ import random
 import sys
 import time
 import types
+
+import requests
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -204,7 +206,14 @@ def run_matchup(profile: dict, conts: list[Contestant], base_url: str,
     Raises MatchupError on generation failure."""
     verifier = None
     if use_spotify:
-        tok = ev.spotify.get_token()
+        try:
+            tok = ev.spotify.get_token()
+        except (requests.RequestException, ev.spotify.SpotifyConfigError) as e:
+            raise MatchupError(
+                "Spotify authentication failed; check your connection/DNS and Spotify credentials, "
+                "then retry. This duel has not generated responses or saved a verdict. "
+                f"({type(e).__name__})"
+            ) from e
         if tok:
             verifier = ev.spotify.verifier_for(tok)
 
@@ -466,25 +475,31 @@ def run_session(cmd: str, matchups: list[tuple[dict, list[Contestant]]], args) -
                 status = "skipped"
                 verdict = "skipped (memory guard)"
             else:
-                verdict = run_matchup(prof, conts, args.base_url,
-                                      args.temperature,
-                                      use_spotify=not args.no_spotify,
-                                      grade_winner=args.grade_winner,
-                                      enricher=args.enricher)
-        except MatchupError as e:
-            print(f"❌ {e}", file=sys.stderr)
-            ans = _ask_line("   r = retry, s = skip, q = quit: ")
-            if ans is None:
-                raise KeyboardInterrupt
-            ans = ans.lower()
-            if ans in ("r", "retry", ""):
-                continue          # leave pending → retry next loop iteration
-            status = "skipped" if ans == "s" else "aborted"
-            verdict = str(e)
-            if ans in ("q", "quit"):
-                break
+                while True:
+                    try:
+                        verdict = run_matchup(prof, conts, args.base_url,
+                                              args.temperature,
+                                              use_spotify=not args.no_spotify,
+                                              grade_winner=args.grade_winner,
+                                              enricher=args.enricher)
+                        break
+                    except MatchupError as e:
+                        print(f"❌ {e}", file=sys.stderr)
+                        while True:
+                            ans = _ask_line("   r = retry this duel, s = skip, q = quit: ")
+                            if ans is None or ans.lower() in ("q", "quit"):
+                                raise KeyboardInterrupt
+                            ans = ans.lower()
+                            if ans in ("r", "retry", "", "s", "skip"):
+                                break
+                            print("Choose r, s, or q.")
+                        if ans in ("s", "skip"):
+                            status = "skipped"
+                            verdict = str(e)
+                            break
+                        # Retry the SAME profile, including the final duel.
         except KeyboardInterrupt:
-            print("\n(interrupted — progress saved)")
+            print("\n(interrupted — completed progress saved; current duel remains pending)")
             break
 
         state["matchups"] = [m for m in state["matchups"] if m["key"] != k]

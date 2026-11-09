@@ -321,6 +321,11 @@ def evaluate_model(
             metrics = score_outcome(prof, outcome, bool(verifier))
             status = "ok"
             err = None
+            if not outcome.ok:
+                status = "error"
+                err = "; ".join(f"{s.stage}: {s.error or 'failed'}" for s in outcome.stages if not s.ok) or "No eligible recommendations produced"
+            elif not outcome.recs:
+                status = "abstained"
         except LLMConnectionError as e:
             outcome = pipeline.RunOutcome(ok=False)
             metrics = score_outcome(prof, outcome, False)
@@ -507,6 +512,11 @@ def render_leaderboard(results: list[dict], args) -> str:
                 f"| {name} | {'✅' if m.get('ok') else '❌'} | {m['n_recs']} | {m['n_new_artists']} | {rolecol} "
                 f"| {r1col} | {resc} | {ggb} | {gcol} | {t3col} | {pcol} | {ncol} | {scol} | {jcol} | {m.get('avg_confidence','')} | {m['quality']:.3f} | {status} |"
             )
+
+        for name, block in r["per_profile"].items():
+            error = (block.get("metrics") or {}).get("error")
+            if error:
+                lines.append(f"\n**{name} error:** {str(error).replace(chr(10), ' ')}")
 
         # Recs with the model's self-reported genre/era — display only (never
         # scored on); this is how untagged recs stay legible. Year is Spotify's

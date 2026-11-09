@@ -97,7 +97,7 @@ def _register(
         # a published version runs byte-identically without the param).
         enricher = kw.pop("enricher", None)
         facts = kw.pop("catalog_facts", None)
-        if not facts and enricher is not None and enricher.available:
+        if not facts and enricher is not None and enricher.available and (details or {}).get("legacy enrichment", True):
             pairs = [(r["artist"], r["album"]) for r in reviews]
             facts = enricher.fact_map(pairs)
         if facts and _accepts_kw(run, "catalog_facts"):

@@ -1,5 +1,33 @@
 # AmongstFriends — LLM Recommendation Engine
 
+```bash
+make wizard
+```
+
+Start here for **recommendations or evaluations**. The wizard asks what you
+want to do, shows defaults, and builds the command for you. Numbered checkboxes
+let you select profiles, models, and agents; Enter accepts the checked choices.
+It previews the exact command before offering to run it.
+
+For recommendations, enter the recipient's **Firebase user ID**, choose preview
+(default) or live delivery, group (`auto` selects the only shared group), maximum
+pick count, model/server, agent, and enrichment. Preview fetches real reviews and
+generates recommendations but sends nothing. Live delivery requires Spotify
+verification and explicit confirmation in the wizard. If several shared groups
+exist, the runner lists their IDs; rerun the wizard with one of those IDs.
+Recipient IDs are entered manually; the wizard does not enumerate Firebase users.
+
+To build commands without running them: `venv/bin/python wizard.py --dry-run`.
+This differs from recommendation **preview**, which does fetch and generate.
+Automated eval offers **one profile or all profiles**, each yielding one
+leaderboard. Scoring and duels support profile subsets.
+See [eval launcher usage and maintenance](eval/README.md#interactive-launcher).
+
+When recommendation flags or defaults change, update `wizard.py` and
+`eval/tests/test_recommend_wizard.py` alongside `recommend.py`. Shared prompt
+helpers and eval workflow rules live in `eval/wizard.py`. Agents, models, and
+profiles are discovered, so new catalog entries do not need menu edits.
+
 Reads a user's album reviews from the AmongstFriends Firebase backend, runs them
 through a local LLM to generate personalized album recommendations, verifies each
 pick against the real Spotify API (retrying hallucinations), and submits them back
@@ -349,3 +377,70 @@ get_user_reviews()       local LLM                 submit_recommendation()
 - Env: `MIN_REVIEWS_TO_RUN` (default 3), `SPOTIFY_MATCH_THRESHOLD` (default 0.5),
   `GROUP_ID` (optional existing shared group), plus the `.env` table above.
 - CLI: `--temperature` on the eval tools (lower = less creative, fewer hallucinations).
+
+### Album-specific evidence experiment (`album-evidence@v1`)
+
+This agent preserves pool evaluation (up to eight initial albums), but makes a
+separate contrastive selection pass and records an explicit delivery rank. Both
+passes see the original numbered album reviews. Artist reputation, artist tags,
+and other albums are not evidence of the reviewed album's sound. Candidate
+proposal reasons are marked as hypotheses, not independent evidence.
+
+The selector compares candidates against positive and negative review evidence,
+checks for artist-stereotype mistakes, and may keep a short pool or abstain. It
+never restores a rejected majority or fills empty slots. Missing verdicts,
+invalid review references, and malformed selection entries are excluded. Review
+references are checked structurally; their semantic validity still depends on the
+model. Confidence remains an uncalibrated model estimate. Production honors this
+agent's final order instead of sorting it again by confidence. Existing agents
+retain their selection behavior and remain available for comparison.
+
+```bash
+make eval AGENT=album-evidence@v1 PROFILE=full_spectrum
+make score AGENT=album-evidence@v1 PROFILE=full_spectrum ROUNDS=2
+make dry FB_UID=<uid> AGENT=album-evidence@v1
+
+# Optional: at most four Last.fm album.getinfo attempts in EACH run/profile.
+AFREC_ALBUM_LOOKUP_BUDGET=4 make eval AGENT=album-evidence@v1 PROFILE=full_spectrum
+```
+
+Last.fm is off by default for this agent (`AFREC_ALBUM_LOOKUP_BUDGET=0`). It
+reads a separate 30-day disk cache at `afrec/cache/album_evidence_v1.json`, including
+cached misses, even with budget zero. A positive budget requires LASTFM_API_KEY.
+Only exact normalized artist+album identities are accepted; there is no artist-tag
+fallback. One failure stops further lookups in that run. Budget applies to
+candidate metadata only; existing Spotify verification is separate (at most eight
+initial candidates, no reflection refill). Across a multi-profile evaluation,
+each run gets a fresh budget; this is not an account-wide daily limiter. Cache
+files assume sequential runs, like the existing enrichment cache.
+
+`ENRICH=1` does not activate legacy enrichment for this agent: that layer mixes
+artist tags and representative-track features into album records without enough
+provenance. Candidate metadata uses album.getinfo only and remains noisy supporting
+evidence. Unknown facts remain unknown. Existing agents' enrichment is unchanged.
+
+This experiment improves **album-level selection**, not fresh-catalog discovery:
+initial candidates still come from model memory. Compare against pool-map using
+the same model and profiles, judging both the full pool and its first entry.
+An empty successful selection is an abstention; older dashboards may display it
+as zero recommendations. A malformed/failed selector is a failed stage. Compare
+coverage alongside quality so abstention does not artificially look like a win.
+No live model evaluation was required to register the agent; human listening is
+still needed to establish whether it improves recommendations.
+
+#### Structured-output fix: `album-evidence@v1.1`
+
+Use `AGENT=album-evidence@v1.1` (or bare `album-evidence`) for new runs.
+The original v1 remains pinned for historical comparisons. Mistral 7B sometimes
+answered v1 with prose and verbal confidence labels, causing discovery parsing to
+fail. v1.1 supplies llama.cpp response-format schemas for both stages and includes
+explicit JSON/type instructions in the prompt. Other backends get the explicit
+schema prompt only. All album evidence, lookup budgets, and ranking rules remain
+the same. Schema constraints ensure format, not recommendation quality.
+
+```bash
+make eval AGENT=album-evidence@v1.1 PROFILE=full_spectrum
+```
+
+The evaluator now labels unsuccessful outcomes `error` and prints failed-stage
+messages in the leaderboard; successful empty selections are labeled `abstained`.

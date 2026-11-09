@@ -1,5 +1,64 @@
 # Evaluation — the single root for all eval work
 
+## Interactive launcher
+
+Run `make wizard` and choose evaluations, or use `venv/bin/python eval/wizard.py` directly.
+For command building only: `venv/bin/python eval/wizard.py --dry-run`.
+No new dependencies or terminal setup are needed.
+
+1. Choose the task: leaderboard, fast experiment, CSV, labeling, response
+   scoring, model/agent duels, saved judgments, statistics, or site generation.
+2. Toggle numbered checkboxes with `1 3` or `1,3`; `all` / `none` also work.
+   Enter accepts the checked defaults. A single-choice menu replaces the
+   previous selection when you type another number. `q`, Ctrl-C, or EOF cancels.
+3. Pick profiles, models and agents. Each menu explains how many are needed.
+   Model IDs come from the configured server; you can also enter IDs manually.
+   The configured model remains available when the server is offline.
+4. Review the printed commands and working directory. Running defaults to **no**;
+   copy the commands for later or answer `y` to run with normal terminal input.
+
+Profiles come from `evaluate.discover_profiles()` and agents (including pinned
+versions and summaries) come from `afrec.agents`. Defaults use `.env` / environment
+settings just like the runners: `LLM_MODEL` / `OLLAMA_MODEL`, `LLM_URL` /
+`OLLAMA_URL`, and `AFREC_AGENT`. The model catalog uses `/v1/models`, or `/api/tags`
+when `LLM_BACKEND=ollama`; discovery has a three-second timeout and never loads
+models. It is a catalog, not a promise that every listed model fits in memory.
+
+Labeling needs exactly one model and profile; fast and CSV runs use one profile.
+Scoring and model duels can span profiles; model duels need two or more models.
+Agent duels need exactly two distinct agents. Batched model duels let you pick
+an agent per model. Their current contestant syntax cannot represent model IDs
+containing `:` (such as Ollama tags); use the same-agent model duel for those.
+The existing batched runners retain their resume behavior and memory guards.
+
+Automated eval is restricted to **one profile or all profiles**, producing one
+leaderboard per invocation. Arbitrary subsets are not offered because the runner
+accepts only a single profile filter. Scoring and duels use their runners' native
+multi-profile flags and retain subset checkboxes.
+The launcher leaves advanced tuning at runner defaults; the printed commands
+can be edited for other flags. CSV paths resolve from the repository. A failed
+runner stops the remaining command queue. The evaluation launcher does not send production recommendations. The top-level
+`make wizard` also offers a separate recommendation flow; neither flow changes
+the selected production agent.
+
+### Keeping the launcher current
+
+- **New profile:** add `eval/fixtures/*.json` as usual; it appears automatically.
+- **New agent/version:** register and import it through `afrec/agents.py`; its
+  tag and summary appear automatically. Keep published versions available.
+- **New model:** expose it in the configured server catalog, or enter its exact
+  ID manually. Keep model-specific options in `afrec/model_options.json`, not
+  in the launcher. No duplicate model inventory is maintained here.
+- **Runner/workflow changes:** update `eval/wizard.py` (`ACTIONS`, `plan`, and
+  `build_commands`) alongside the CLI and Makefile. Check selection counts,
+  profile encoding, supported flags, defaults, output paths, and resume behavior.
+  If contestant syntax changes, revisit the colon restriction.
+- Run `venv/bin/python eval/tests/test_wizard.py` (also included in `make test`),
+  then walk through `eval/wizard.py --dry-run` for the changed workflow. Preview
+  checks must not generate recommendations or alter judging data.
+
+
+
 > This is the **deep dive**: what each number means and how to improve the
 > evaluation. For the quick "I want to X → command" menu, see the root
 > [`README.md`](../README.md) (or just run `make help`).
@@ -460,3 +519,12 @@ you can diff exactly what changed between two runs.
 - **CSV `verified=no` for real-sounding albums** → Spotify genuinely doesn't have
   that exact artist+album; the `spotify_url` column is a search link you can open to
   confirm.
+
+### Recovering a duel after a connection failure
+
+If Spotify token acquisition fails (including DNS/timeouts), batched duels offer
+retry / skip / quit. Retry repeats the current duel, including the last duel in
+the queue. Quit or EOF leaves it pending; completed judgments stay saved. Restore
+the connection and rerun the same wizard selections/command to resume. Explicit
+skips stay skipped. A Spotify outage does not silently disable verification.
+Regression checks: `venv/bin/python eval/tests/test_duel_recovery.py`.

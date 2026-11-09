@@ -37,7 +37,7 @@ def _min_reviews() -> int:
 
 
 def select_delivery(recs, reviews, count):
-    """Exclude reviewed/canonical albums, then rank by reported confidence."""
+    """Exclude reviewed albums; honor explicit agent rank, else reported confidence."""
     def normalize(value):
         return "".join(c for c in unicodedata.normalize("NFKD", value.casefold())
                        if c.isalnum())
@@ -52,8 +52,11 @@ def select_delivery(recs, reviews, count):
         if not math.isfinite(rec.confidence) or not 0 <= rec.confidence <= 1:
             continue
         eligible.append(rec)
-    # Stable sort preserves agent preference when confidence is tied.
-    ranked = sorted(eligible, key=lambda rec: rec.confidence, reverse=True)
+    # Old agents retain confidence sorting; ranked agents preserve their final decision.
+    ranked = sorted(eligible, key=lambda rec: (
+        rec.delivery_rank is None,
+        rec.delivery_rank if rec.delivery_rank is not None else -rec.confidence,
+    ))
     selected = []
     seen = set()
     for rec in ranked:
@@ -209,7 +212,8 @@ def main(argv=None):
     ):
         raise firebase.FirebaseError("Verification failed during generation; no recommendations sent.")
     recs = select_delivery(outcome.recs, reviews, args.count)
-    print(f"   Selected {len(recs)} unreviewed pick(s) by model-reported confidence.")
+    ordering = "agent delivery rank" if any(r.delivery_rank is not None for r in recs) else "model-reported confidence"
+    print(f"   Selected {len(recs)} unreviewed pick(s) by {ordering}.")
     print("\n5. " + ("Would submit (dry run)" if args.dry_run else "Submitting recommendations..."))
     submitted = firebase.submit_many(
         recs,

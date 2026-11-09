@@ -122,6 +122,7 @@ class Rec:
     role: str | None = None      # pool-map agent: core / adjacent / stretch
     lane: str | None = None      # pool-map agent: lane/thread the rec sits in
     round: int = 1               # 1 = initial, 2 = retry replacement
+    delivery_rank: int | None = None  # explicit final selection order, when supplied by an agent
 
 
 @dataclass

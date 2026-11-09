@@ -50,6 +50,8 @@ help:
 	@echo "  dry  FB_UID=<uid>                fetch reviews + generate, submit NOTHING"
 	@echo "  run  FB_UID=<uid> [GROUP=<id>]   real run — submits recommendations"
 	@echo ""
+	@echo "  wizard                         guided recommendations and evaluations"
+	@echo ""
 	@echo "  AUTOMATED (no human in the loop)"
 	@echo "  eval    [PROFILE=... AGENT=..] full leaderboard, all profiles, Spotify on"
 	@echo "  fast    [PROFILE=... AGENT=..] one profile, no Spotify — seconds, for prompt editing"
@@ -108,6 +110,10 @@ run:
 	$(PYTHON) recommend.py "$(FB_UID)" $(if $(GROUP),--group-id "$(GROUP)") --count $(or $(COUNT),1) $(AGENT_OPT) $(ENRICH_OPT)
 
 # ── Measure ───────────────────────────────────────────────────────────────────
+
+.PHONY: wizard
+wizard:
+	$(PYTHON) wizard.py
 
 .PHONY: eval
 eval:
@@ -223,6 +229,10 @@ site:
 
 .PHONY: site test
 test:
+	$(PYTHON) eval/tests/test_duel_recovery.py
+	$(PYTHON) eval/tests/test_wizard.py
+	$(PYTHON) eval/tests/test_recommend_wizard.py
+	$(PYTHON) eval/tests/test_album_evidence.py
 	$(PYTHON) eval/tests/test_lastfm.py
 	$(PYTHON) eval/tests/test_production.py
 	$(PYTHON) eval/tests/test_agents.py
